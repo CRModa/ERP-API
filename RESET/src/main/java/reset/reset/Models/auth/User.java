@@ -17,7 +17,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 @Entity
-@Table(name = "user")
+@Table(name = "users")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -27,7 +27,7 @@ public class User implements UserDetails {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)  // ← LAZY
     @JoinColumn(name = "empresa_id", nullable = false)
     private Empresa empresa;
 
@@ -44,7 +44,7 @@ public class User implements UserDetails {
     private String password;
 
     @Column(length = 50)
-    private String perfil; // ADMIN, VENDEDOR, CONTABILISTA (deprecated - use roles)
+    private String perfil;
 
     @Column(columnDefinition = "BOOLEAN DEFAULT TRUE")
     private Boolean ativo = true;
@@ -56,7 +56,7 @@ public class User implements UserDetails {
     @Column(name = "ultimo_login")
     private LocalDateTime ultimoLogin;
 
-    @ManyToMany(fetch = FetchType.EAGER)
+    @ManyToMany(fetch = FetchType.LAZY)  // ← LAZY
     @JoinTable(
             name = "utilizador_role",
             joinColumns = @JoinColumn(name = "utilizador_id"),
@@ -64,7 +64,7 @@ public class User implements UserDetails {
     )
     private Set<Role> roles = new HashSet<>();
 
-    @ManyToMany(fetch = FetchType.EAGER)
+    @ManyToMany(fetch = FetchType.LAZY)  // ← LAZY
     @JoinTable(
             name = "utilizador_permissao",
             joinColumns = @JoinColumn(name = "utilizador_id"),
@@ -72,23 +72,26 @@ public class User implements UserDetails {
     )
     private Set<Permissao> permissoes = new HashSet<>();
 
-    // UserDetails Implementation
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
         Set<GrantedAuthority> authorities = new HashSet<>();
 
-        // Add role authorities
-        roles.forEach(role -> {
-            authorities.add(new SimpleGrantedAuthority("ROLE_" + role.getNome()));
-            role.getPermissoes().forEach(permissao ->
+        if (roles != null) {
+            roles.forEach(role -> {
+                authorities.add(new SimpleGrantedAuthority("ROLE_" + role.getNome()));
+                if (role.getPermissoes() != null) {
+                    role.getPermissoes().forEach(permissao ->
+                            authorities.add(new SimpleGrantedAuthority(permissao.getNome()))
+                    );
+                }
+            });
+        }
+
+        if (permissoes != null) {
+            permissoes.forEach(permissao ->
                     authorities.add(new SimpleGrantedAuthority(permissao.getNome()))
             );
-        });
-
-        // Add direct user permissions
-        permissoes.forEach(permissao ->
-                authorities.add(new SimpleGrantedAuthority(permissao.getNome()))
-        );
+        }
 
         return authorities;
     }
@@ -110,6 +113,6 @@ public class User implements UserDetails {
 
     @Override
     public boolean isEnabled() {
-        return ativo;
+        return ativo != null && ativo;
     }
 }

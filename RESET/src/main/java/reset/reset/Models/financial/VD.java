@@ -16,12 +16,17 @@ import java.io.Serializable;
 public class VD implements Serializable {
 
     @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
     @ManyToOne
     @JoinColumn(name = "venda_documento_id")
     private Documento vendaDocumento;
 
-    @Id
     @ManyToOne
     @JoinColumn(name = "recibo_documento_id")
     private Documento reciboDocumento;
+
+    @Column(columnDefinition = "BOOLEAN DEFAULT TRUE")
+    private Boolean ativo = true;
 }

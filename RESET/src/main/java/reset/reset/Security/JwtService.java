@@ -9,6 +9,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
+import reset.reset.Models.auth.User;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -20,6 +21,7 @@ import java.util.stream.Collectors;
 @Service
 public class JwtService {
 
+
     @Value("${jwt.secret}")
     private String secret;
 
@@ -29,9 +31,6 @@ public class JwtService {
     @Value("${jwt.issuer:erp-system}")
     private String issuer;
 
-    /**
-     * Extract username from JWT token
-     */
     public String extractUsername(String token) {
         try {
             DecodedJWT decodedJWT = JWT.decode(token);
@@ -41,9 +40,6 @@ public class JwtService {
         }
     }
 
-    /**
-     * Extract all claims from token
-     */
     public DecodedJWT decodeToken(String token) {
         try {
             return JWT.decode(token);
@@ -52,16 +48,10 @@ public class JwtService {
         }
     }
 
-    /**
-     * Generate token with default claims
-     */
     public String generateToken(UserDetails userDetails) {
         return generateToken(new HashMap<>(), userDetails);
     }
 
-    /**
-     * Generate token with extra claims
-     */
     public String generateToken(Map<String, Object> extraClaims, UserDetails userDetails) {
         Algorithm algorithm = Algorithm.HMAC256(secret);
 
@@ -74,6 +64,21 @@ public class JwtService {
                 .withClaim("roles", userDetails.getAuthorities().stream()
                         .map(GrantedAuthority::getAuthority)
                         .collect(Collectors.toList()));
+
+        // Adicionar claims extras se for UserPrincipal
+        if (userDetails instanceof UserPrincipal) {
+            UserPrincipal userPrincipal = (UserPrincipal) userDetails;
+            builder.withClaim("userId", userPrincipal.getId());
+            if (userPrincipal.getEmpresaId() != null) {
+                builder.withClaim("empresaId", userPrincipal.getEmpresaId());
+            }
+            if (userPrincipal.getNome() != null) {
+                builder.withClaim("nome", userPrincipal.getNome());
+            }
+            if (userPrincipal.getEmail() != null) {
+                builder.withClaim("email", userPrincipal.getEmail());
+            }
+        }
 
         // Add extra claims
         extraClaims.forEach((key, value) -> {
@@ -99,9 +104,38 @@ public class JwtService {
         return builder.sign(algorithm);
     }
 
-    /**
-     * Generate token with user ID and company ID
-     */
+    public String generateTokenFromUser(User user) {
+        // Inicializar coleções para evitar problemas de Lazy Loading
+        if (user.getRoles() != null) {
+            user.getRoles().size();
+            user.getRoles().forEach(role -> {
+                if (role.getPermissoes() != null) {
+                    role.getPermissoes().size();
+                }
+            });
+        }
+        if (user.getPermissoes() != null) {
+            user.getPermissoes().size();
+        }
+
+        Algorithm algorithm = Algorithm.HMAC256(secret);
+
+        var builder = JWT.create()
+                .withIssuer(issuer)
+                .withSubject(user.getUsername())
+                .withIssuedAt(Date.from(Instant.now()))
+                .withExpiresAt(Date.from(Instant.now().plus(expiration, ChronoUnit.MILLIS)))
+                .withClaim("roles", user.getAuthorities().stream()
+                        .map(GrantedAuthority::getAuthority)
+                        .collect(Collectors.toList()))
+                .withClaim("userId", user.getId())
+                .withClaim("empresaId", user.getEmpresa().getId())
+                .withClaim("nome", user.getNome() != null ? user.getNome() : "")
+                .withClaim("email", user.getEmail() != null ? user.getEmail() : "");
+
+        return builder.sign(algorithm);
+    }
+
     public String generateTokenWithUserInfo(UserDetails userDetails, Long userId, Long empresaId) {
         Map<String, Object> claims = new HashMap<>();
         claims.put("userId", userId);
@@ -110,9 +144,6 @@ public class JwtService {
         return generateToken(claims, userDetails);
     }
 
-    /**
-     * Validate token
-     */
     public boolean isTokenValid(String token, UserDetails userDetails) {
         try {
             String username = extractUsername(token);
@@ -124,9 +155,6 @@ public class JwtService {
         }
     }
 
-    /**
-     * Check if token is expired
-     */
     public boolean isTokenExpired(String token) {
         try {
             DecodedJWT decodedJWT = JWT.decode(token);
@@ -137,9 +165,6 @@ public class JwtService {
         }
     }
 
-    /**
-     * Get expiration date from token
-     */
     public Date extractExpiration(String token) {
         try {
             DecodedJWT decodedJWT = JWT.decode(token);
@@ -149,9 +174,6 @@ public class JwtService {
         }
     }
 
-    /**
-     * Get a specific claim from token
-     */
     public <T> T extractClaim(String token, String claimName, Class<T> type) {
         try {
             DecodedJWT decodedJWT = JWT.decode(token);
@@ -161,9 +183,6 @@ public class JwtService {
         }
     }
 
-    /**
-     * Get all claims as map
-     */
     public Map<String, Object> extractAllClaims(String token) {
         try {
             DecodedJWT decodedJWT = JWT.decode(token);
@@ -177,9 +196,6 @@ public class JwtService {
         }
     }
 
-    /**
-     * Verify token signature and validity
-     */
     public boolean verifyToken(String token) {
         try {
             Algorithm algorithm = Algorithm.HMAC256(secret);
@@ -193,9 +209,6 @@ public class JwtService {
         }
     }
 
-    /**
-     * Get decoded JWT with verification
-     */
     public DecodedJWT verifyAndDecode(String token) throws JWTVerificationException {
         Algorithm algorithm = Algorithm.HMAC256(secret);
         JWTVerifier verifier = JWT.require(algorithm)
@@ -204,9 +217,6 @@ public class JwtService {
         return verifier.verify(token);
     }
 
-    /**
-     * Refresh token (extend expiration)
-     */
     public String refreshToken(String token) {
         if (!verifyToken(token)) {
             throw new IllegalArgumentException("Invalid token");
@@ -232,18 +242,12 @@ public class JwtService {
         return builder.sign(algorithm);
     }
 
-    /**
-     * Get remaining time in milliseconds
-     */
     public long getRemainingTime(String token) {
         Date expiration = extractExpiration(token);
         if (expiration == null) return 0;
         return expiration.getTime() - System.currentTimeMillis();
     }
 
-    /**
-     * Check if token can be refreshed (less than 50% of expiration time remaining)
-     */
     public boolean shouldRefresh(String token) {
         long remaining = getRemainingTime(token);
         return remaining < (expiration / 2);

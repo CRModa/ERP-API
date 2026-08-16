@@ -58,5 +58,8 @@ public class LancamentoContabil {
 
     @OneToMany(mappedBy = "lancamento", cascade = CascadeType.ALL)
     private List<LancamentoContabilLinha> linhas;
+
+    @Column(columnDefinition = "BOOLEAN DEFAULT TRUE")
+    private Boolean ativo = true;
 }
 

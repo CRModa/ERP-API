@@ -37,5 +37,8 @@ public class Conta {
 
     @OneToMany(mappedBy = "conta", cascade = CascadeType.ALL)
     private List<MovimentoConta> movimentos;
+
+    @Column(columnDefinition = "BOOLEAN DEFAULT TRUE")
+    private Boolean ativo = true;
 }
 

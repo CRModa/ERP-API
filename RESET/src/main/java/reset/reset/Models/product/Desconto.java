@@ -37,4 +37,6 @@ public class Desconto {
     @CreationTimestamp
     @Column(name = "data_registo", updatable = false)
     private LocalDateTime dataRegisto;
+
+    private boolean ativo = true;
 }

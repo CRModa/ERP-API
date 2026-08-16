@@ -2,6 +2,7 @@ package reset.reset.Security;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
+import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
@@ -15,6 +16,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.Arrays;
 
 @Component
 @RequiredArgsConstructor
@@ -31,16 +33,18 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             FilterChain filterChain
     ) throws ServletException, IOException {
 
-        final String authHeader = request.getHeader("Authorization");
-        final String jwt;
-        final String username;
+        // Tentar obter o token do cookie primeiro
+        String jwt = extractTokenFromCookie(request);
 
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+        // Se não encontrar no cookie, tentar do header (para compatibilidade)
+        if (jwt == null) {
+            jwt = extractTokenFromHeader(request);
+        }
+
+        if (jwt == null) {
             filterChain.doFilter(request, response);
             return;
         }
-
-        jwt = authHeader.substring(7);
 
         // Verify token first
         if (!jwtService.verifyToken(jwt)) {
@@ -49,7 +53,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             return;
         }
 
-        username = jwtService.extractUsername(jwt);
+        String username = jwtService.extractUsername(jwt);
 
         if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
             UserDetails userDetails = userDetailsService.loadUserByUsername(username);
@@ -70,5 +74,25 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
 
         filterChain.doFilter(request, response);
+    }
+
+    private String extractTokenFromCookie(HttpServletRequest request) {
+        Cookie[] cookies = request.getCookies();
+        if (cookies != null) {
+            return Arrays.stream(cookies)
+                    .filter(cookie -> "AUTH-TOKEN".equals(cookie.getName()))
+                    .map(Cookie::getValue)
+                    .findFirst()
+                    .orElse(null);
+        }
+        return null;
+    }
+
+    private String extractTokenFromHeader(HttpServletRequest request) {
+        final String authHeader = request.getHeader("Authorization");
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            return authHeader.substring(7);
+        }
+        return null;
     }
 }

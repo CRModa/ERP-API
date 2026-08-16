@@ -1,16 +1,15 @@
 package reset.reset.Models.auth;
 
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 import java.util.HashSet;
 import java.util.Set;
 
 @Entity
 @Table(name = "permissao")
-@Data
+@Getter
+@Setter
 @NoArgsConstructor
 @AllArgsConstructor
 public class Permissao {
@@ -30,6 +29,9 @@ public class Permissao {
 
     @Column(length = 20)
     private String acao; // CREATE, READ, UPDATE, DELETE, EXECUTE
+
+    @Column(columnDefinition = "BOOLEAN DEFAULT TRUE")
+    private Boolean ativo = true;
 
     @ManyToMany(mappedBy = "permissoes")
     private Set<Role> roles = new HashSet<>();

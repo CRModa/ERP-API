@@ -35,6 +35,9 @@ public class DocumentoTipo {
     @Column(name = "afeta_contas")
     private Boolean afetaContas = false;
 
+    @Column(columnDefinition = "BOOLEAN DEFAULT TRUE")
+    private Boolean ativo = true;
+
     public enum ClasseDocumento {
         VENDA, COMPRA, FINANCEIRO, STOCK, OUTRO
     }

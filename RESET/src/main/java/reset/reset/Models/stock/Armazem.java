@@ -33,4 +33,7 @@ public class Armazem {
     @CreationTimestamp
     @Column(name = "data_registo", updatable = false)
     private LocalDateTime dataRegisto;
+
+    @Column(columnDefinition = "BOOLEAN DEFAULT TRUE")
+    private Boolean ativo = true;
 }

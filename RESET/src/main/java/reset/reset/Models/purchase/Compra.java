@@ -47,5 +47,8 @@ public class Compra {
 
     @OneToMany(mappedBy = "compra", cascade = CascadeType.ALL)
     private List<CompraItem> itens;
+
+    @Column(columnDefinition = "BOOLEAN DEFAULT TRUE")
+    private Boolean ativo = true;
 }
 

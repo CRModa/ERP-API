@@ -36,6 +36,9 @@ public class LancamentoContabilLinha {
     @Column(length = 200)
     private String descricao;
 
+    @Column(columnDefinition = "BOOLEAN DEFAULT TRUE")
+    private Boolean ativo = true;
+
     public enum Natureza {
         D, C
     }

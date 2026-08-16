@@ -46,4 +46,7 @@ public class MovimentoStock {
     @CreationTimestamp
     @Column(name = "data_movimento", updatable = false)
     private LocalDateTime dataMovimento;
+
+    @Column(columnDefinition = "BOOLEAN DEFAULT TRUE")
+    private Boolean ativo = true;
 }

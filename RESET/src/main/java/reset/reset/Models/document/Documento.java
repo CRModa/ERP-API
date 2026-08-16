@@ -55,4 +55,7 @@ public class Documento {
 
     @OneToMany(mappedBy = "documento", cascade = CascadeType.ALL)
     private List<DocumentoItem> itens;
+
+    @Column(columnDefinition = "BOOLEAN DEFAULT TRUE")
+    private Boolean ativo = true;
 }

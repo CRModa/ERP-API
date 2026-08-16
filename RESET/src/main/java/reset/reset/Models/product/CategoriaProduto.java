@@ -26,4 +26,7 @@ public class CategoriaProduto {
     private String descricao;
 
     private String observacao;
+
+    @Column(columnDefinition = "BOOLEAN DEFAULT TRUE")
+    private Boolean ativo = true;
 }

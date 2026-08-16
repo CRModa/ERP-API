@@ -29,4 +29,7 @@ public class Stock {
 
     @Column(name = "quantidade_atual", precision = 15, scale = 3)
     private BigDecimal quantidadeAtual = BigDecimal.ZERO;
+
+    @Column(columnDefinition = "BOOLEAN DEFAULT TRUE")
+    private Boolean ativo = true;
 }

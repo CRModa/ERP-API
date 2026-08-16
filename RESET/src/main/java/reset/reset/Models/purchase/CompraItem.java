@@ -37,4 +37,7 @@ public class CompraItem {
     @ManyToOne
     @JoinColumn(name = "iva_id")
     private Iva iva;
+
+    @Column(columnDefinition = "BOOLEAN DEFAULT TRUE")
+    private Boolean ativo = true;
 }

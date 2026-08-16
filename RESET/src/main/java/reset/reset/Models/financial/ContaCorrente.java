@@ -73,6 +73,9 @@ public class ContaCorrente {
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
+    @Column(columnDefinition = "BOOLEAN DEFAULT TRUE")
+    private Boolean ativo = true;
+
     public enum TipoMovimento {
         DEBITO, CREDITO
     }

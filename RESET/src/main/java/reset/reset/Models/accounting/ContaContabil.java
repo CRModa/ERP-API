@@ -29,4 +29,7 @@ public class ContaContabil {
 
     @Column(length = 30)
     private String tipo; // ATIVO, PASSIVO, CUSTO, RENDIMENTO
+
+    @Column(columnDefinition = "BOOLEAN DEFAULT TRUE")
+    private Boolean ativo = true;
 }

@@ -26,4 +26,7 @@ public class Diario {
 
     @Column(length = 100)
     private String descricao;
+
+    @Column(columnDefinition = "BOOLEAN DEFAULT TRUE")
+    private Boolean ativo = true;
 }
