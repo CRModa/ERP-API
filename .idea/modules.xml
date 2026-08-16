@@ -3,6 +3,7 @@
   <component name="ProjectModuleManager">
     <modules>
       <module fileurl="file://$PROJECT_DIR$/.idea/ERP-API.iml" filepath="$PROJECT_DIR$/.idea/ERP-API.iml" />
+      <module fileurl="file://$PROJECT_DIR$/RESET/RESET.iml" filepath="$PROJECT_DIR$/RESET/RESET.iml" />
     </modules>
   </component>
 </project>
