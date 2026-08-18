@@ -47,18 +47,30 @@ public interface UserRepository extends BaseRepository<User, Long> {
     @Query("SELECT u FROM User u WHERE u.ultimoLogin < :data AND u.ativo = true")
     List<User> findInactiveUsers(@Param("data") LocalDateTime data);
 
-    default Page<User> filter(UserFilter filter) {
+    default Page<User> filter(UserFilter filter, Pageable pageable) {
+        UserSpecification spec = buildSpecification(filter);
+        return findAll(spec, pageable);
+    }
+
+    default UserSpecification buildSpecification(UserFilter filter) {
         UserSpecification spec = new UserSpecification();
+
+        // Filtros básicos
         spec.addFilter("username", filter.getUsername(), FilterOperation.LIKE);
         spec.addFilter("nome", filter.getNome(), FilterOperation.LIKE);
         spec.addFilter("email", filter.getEmail(), FilterOperation.LIKE);
         spec.addFilter("perfil", filter.getPerfil(), FilterOperation.LIKE);
         spec.addFilter("empresa.id", filter.getEmpresaId(), FilterOperation.EQUALS);
+
+        // Filtro de data
         spec.addDateTimeRange("dataRegisto", filter.getDataInicio(), filter.getDataFim());
+
+        // Filtro booleano
         if (filter.getAtivo() != null) {
             spec.addFilter("ativo", filter.getAtivo(), FilterOperation.EQUALS);
         }
-        return findAll(spec, filter.toPageable());
+
+        return spec;
     }
 }
 

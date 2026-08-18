@@ -13,4 +13,6 @@ public class UserFilter extends BaseFilter {
     private Long empresaId;
     private LocalDateTime dataInicio;
     private LocalDateTime dataFim;
+    private String roleName;
+    private String searchTerm;
 }

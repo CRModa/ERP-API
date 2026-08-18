@@ -9,7 +9,6 @@ import reset.reset.Models.document.Tipos.Fatura;
 import java.time.LocalDate;
 
 @Data
-@Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class FaturaDTO extends DocumentoDTO {

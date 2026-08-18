@@ -10,9 +10,12 @@ import reset.reset.Exceptions.DuplicateEntityException;
 import reset.reset.Models.core.Empresa;
 import reset.reset.Repositories.core.EmpresaRepository;
 import reset.reset.Services.base.BaseServiceImpl;
+import reset.reset.dto.core.EmpresaEstatisticasDTO;
+import reset.reset.dto.core.EmpresaResumoDTO;
 import reset.reset.dto.filter.EmpresaFilter;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @Slf4j
@@ -81,10 +84,46 @@ public class EmpresaService extends BaseServiceImpl<Empresa, Long, EmpresaReposi
         return empresaRepository.save(empresa);
     }
 
-    public Page<Empresa> filter(EmpresaFilter filter) {
-        return empresaRepository.filter(filter);
+    // Methods returning full entities (for internal use or full DTO conversion)
+    public Page<Empresa> filter(EmpresaFilter filter, Pageable pageable) {
+        return empresaRepository.filter(filter, pageable);
     }
 
+    // Methods returning summarized DTOs
+    public Page<EmpresaResumoDTO> filterSummarized(EmpresaFilter filter, Pageable pageable) {
+        return empresaRepository.filter(filter, pageable)
+                .map(EmpresaResumoDTO::fromEntity);
+    }
+
+    public Page<EmpresaResumoDTO> findActiveEmpresasSummarized(Pageable pageable) {
+        return empresaRepository.findActiveEmpresas(pageable)
+                .map(EmpresaResumoDTO::fromEntity);
+    }
+
+    public List<EmpresaResumoDTO> findAllSummarized() {
+        return empresaRepository.findAll().stream()
+                .map(EmpresaResumoDTO::fromEntity)
+                .collect(Collectors.toList());
+    }
+
+    public List<EmpresaResumoDTO> findAllActiveSummarized() {
+        return empresaRepository.findAllByAtivoTrue().stream()
+                .map(EmpresaResumoDTO::fromEntity)
+                .collect(Collectors.toList());
+    }
+
+    // Statistics
+    public EmpresaEstatisticasDTO getStatistics() {
+        long total = repository.count();
+        long ativas = empresaRepository.countActiveEmpresas();
+        return EmpresaEstatisticasDTO.builder()
+                .totalEmpresas(total)
+                .empresasAtivas(ativas)
+                .empresasInativas(total - ativas)
+                .build();
+    }
+
+    // Legacy methods maintained for backward compatibility
     public Page<Empresa> findActiveEmpresas(Pageable pageable) {
         return empresaRepository.findActiveEmpresas(pageable);
     }

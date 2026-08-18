@@ -16,12 +16,14 @@ import reset.reset.Repositories.auth.RoleRepository;
 import reset.reset.Repositories.auth.UserRepository;
 import reset.reset.Services.base.BaseServiceImpl;
 import reset.reset.dto.auth.ChangePasswordRequest;
+import reset.reset.dto.auth.UserResumoDTO;
 import reset.reset.dto.filter.UserFilter;
 
 import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 @Slf4j
@@ -151,9 +153,29 @@ public class UserService extends BaseServiceImpl<User, Long, UserRepository> {
         return utilizadorRepository.save(utilizador);
     }
 
-    public Page<User> filter(UserFilter filter) {
-        return utilizadorRepository.filter(filter);
+    // Methods returning summarized DTOs (for lists and pages)
+    public Page<UserResumoDTO> filterSummarized(UserFilter filter, Pageable pageable) {
+        return utilizadorRepository.filter(filter, pageable)
+                .map(UserResumoDTO::fromEntity);
     }
+
+    public List<UserResumoDTO> findAllSummarized() {
+        return utilizadorRepository.findAll().stream()
+                .map(UserResumoDTO::fromEntity)
+                .collect(Collectors.toList());
+    }
+
+    public Page<UserResumoDTO> findActiveByEmpresaIdSummarized(Long empresaId, Pageable pageable) {
+        return utilizadorRepository.findActiveByEmpresaId(empresaId, pageable)
+                .map(UserResumoDTO::fromEntity);
+    }
+
+    public List<UserResumoDTO> findByRoleSummarized(String roleName) {
+        return utilizadorRepository.findByRole(roleName).stream()
+                .map(UserResumoDTO::fromEntity)
+                .collect(Collectors.toList());
+    }
+
 
     public Page<User> findActiveByEmpresaId(Long empresaId, Pageable pageable) {
         return utilizadorRepository.findActiveByEmpresaId(empresaId, pageable);
@@ -175,4 +197,3 @@ public class UserService extends BaseServiceImpl<User, Long, UserRepository> {
         return utilizadorRepository.existsByEmail(email);
     }
 }
-

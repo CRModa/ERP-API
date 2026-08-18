@@ -4,6 +4,9 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import reset.reset.Models.core.Empresa;
+
+import java.time.LocalDateTime;
 
 @Data
 @Builder
@@ -15,6 +18,25 @@ public class EmpresaResumoDTO {
     private String nuit;
     private String telefone;
     private String email;
+    private String moeda;
+    private String endereco;
     private String pais;
     private Boolean ativo;
+    private LocalDateTime createdAt;
+
+    public static EmpresaResumoDTO fromEntity(Empresa empresa) {
+        if (empresa == null) return null;
+        return EmpresaResumoDTO.builder()
+                .id(empresa.getId())
+                .nome(empresa.getNome())
+                .nuit(empresa.getNuit())
+                .telefone(empresa.getTelefone())
+                .email(empresa.getEmail())
+                .pais(empresa.getPais())
+                .moeda(empresa.getMoeda())
+                .endereco(empresa.getEndereco())
+                .ativo(empresa.getAtivo())
+                .createdAt(empresa.getCreatedAt())
+                .build();
+    }
 }

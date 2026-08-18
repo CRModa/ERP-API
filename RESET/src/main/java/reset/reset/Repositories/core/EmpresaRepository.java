@@ -28,18 +28,31 @@ public interface EmpresaRepository extends BaseRepository<Empresa, Long> {
     @Query("SELECT COUNT(e) FROM Empresa e WHERE e.ativo = true")
     long countActiveEmpresas();
 
-    default Page<Empresa> filter(EmpresaFilter filter) {
+    default Page<Empresa> filter(EmpresaFilter filter, Pageable pageable) {
+        EmpresaSpecification spec = buildSpecification(filter);
+        return findAll(spec, pageable);
+    }
+
+    default EmpresaSpecification buildSpecification(EmpresaFilter filter) {
         EmpresaSpecification spec = new EmpresaSpecification();
+
+        // Filtros básicos (LIKE)
         spec.addFilter("nome", filter.getNome(), FilterOperation.LIKE);
         spec.addFilter("nuit", filter.getNuit(), FilterOperation.LIKE);
         spec.addFilter("email", filter.getEmail(), FilterOperation.LIKE);
         spec.addFilter("telefone", filter.getTelefone(), FilterOperation.LIKE);
         spec.addFilter("pais", filter.getPais(), FilterOperation.LIKE);
+
+        // Filtro de data de criação (range)
         spec.addDateTimeRange("createdAt", filter.getDataInicio(), filter.getDataFim());
-        if (filter.getAtivo() != null) {
-            spec.addFilter("ativo", filter.getAtivo(), FilterOperation.EQUALS);
-        }
-        return findAll(spec, filter.toPageable());
+
+
+        // Filtro booleano - ativo
+//        if (filter.getAtivo() != null) {
+//            spec.addFilter("ativo", filter.getAtivo(), FilterOperation.EQUALS);
+//        }
+
+        return spec;
     }
 }
 
