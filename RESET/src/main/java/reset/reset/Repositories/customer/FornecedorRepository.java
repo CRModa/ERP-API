@@ -37,9 +37,9 @@ public interface FornecedorRepository extends BaseRepository<Fornecedor, Long> {
         spec.addFilter("email", filter.getEmail(), FilterOperation.LIKE);
         spec.addFilter("telefone", filter.getTelefone(), FilterOperation.LIKE);
         spec.addFilter("empresa.id", filter.getEmpresaId(), FilterOperation.EQUALS);
-        if (filter.getAtivo() != null) {
-            spec.addFilter("ativo", filter.getAtivo(), FilterOperation.EQUALS);
-        }
+//        if (filter.getAtivo() != null) {
+//            spec.addFilter("ativo", filter.getAtivo(), FilterOperation.EQUALS);
+//        }
         return findAll(spec, filter.toPageable());
     }
 }

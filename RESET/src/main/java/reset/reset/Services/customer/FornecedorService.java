@@ -5,13 +5,17 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import reset.reset.Exceptions.DuplicateEntityException;
 import reset.reset.Exceptions.EntityNotFoundException;
+import reset.reset.Models.auth.User;
 import reset.reset.Models.customer.Fornecedor;
+import reset.reset.Repositories.auth.UserRepository;
 import reset.reset.Repositories.core.EmpresaRepository;
 import reset.reset.Repositories.customer.FornecedorRepository;
+import reset.reset.Security.UserPrincipal;
 import reset.reset.Services.base.BaseServiceImpl;
 import reset.reset.dto.filter.BaseFilter;
 import reset.reset.dto.filter.FornecedorFilter;
@@ -24,6 +28,8 @@ public class FornecedorService extends BaseServiceImpl<Fornecedor, Long, Fornece
     private final FornecedorRepository fornecedorRepository;
     @Autowired
     private EmpresaRepository empresaRepository;
+    @Autowired
+    private UserRepository userRepository;
 
     public FornecedorService(FornecedorRepository repository) {
         super(repository);
@@ -32,13 +38,14 @@ public class FornecedorService extends BaseServiceImpl<Fornecedor, Long, Fornece
 
     @Override
     protected void validateBeforeSave(Fornecedor fornecedor) {
-        validateEmpresaExists(fornecedor.getEmpresa().getId());
+//        validateEmpresaExists(fornecedor.getEmpresa().getId());
         if (fornecedor.getNuit() != null && !fornecedor.getNuit().isEmpty()) {
             validateNuitUniqueness(fornecedor.getNuit(), null);
         }
         if (fornecedor.getEmail() != null && !fornecedor.getEmail().isEmpty()) {
             validateEmailUniqueness(fornecedor.getEmail(), null);
         }
+        fornecedor.setEmpresa(getAuthenticatedUser().getEmpresa());
     }
 
     @Override
@@ -109,5 +116,10 @@ public class FornecedorService extends BaseServiceImpl<Fornecedor, Long, Fornece
 
     public long countActiveByEmpresaId(Long empresaId) {
         return fornecedorRepository.countActiveByEmpresaId(empresaId);
+    }
+
+    private User getAuthenticatedUser() {
+        UserPrincipal principal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        return userRepository.findById(principal.getId()).get();
     }
 }

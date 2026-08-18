@@ -5,14 +5,18 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import reset.reset.Exceptions.BusinessException;
 import reset.reset.Exceptions.DuplicateEntityException;
 import reset.reset.Exceptions.EntityNotFoundException;
+import reset.reset.Models.auth.User;
 import reset.reset.Models.customer.Cliente;
+import reset.reset.Repositories.auth.UserRepository;
 import reset.reset.Repositories.core.EmpresaRepository;
 import reset.reset.Repositories.customer.ClienteRepository;
+import reset.reset.Security.UserPrincipal;
 import reset.reset.Services.base.BaseServiceImpl;
 import reset.reset.dto.filter.ClienteFilter;
 import reset.reset.dto.projection.ClienteResumo;
@@ -28,6 +32,8 @@ public class ClienteService extends BaseServiceImpl<Cliente, Long, ClienteReposi
     private final ClienteRepository clienteRepository;
     @Autowired
     private EmpresaRepository empresaRepository;
+    @Autowired
+    private UserRepository userRepository;
 
     public ClienteService(ClienteRepository repository) {
         super(repository);
@@ -36,13 +42,14 @@ public class ClienteService extends BaseServiceImpl<Cliente, Long, ClienteReposi
 
     @Override
     protected void validateBeforeSave(Cliente cliente) {
-        validateEmpresaExists(cliente.getEmpresa().getId());
+//        validateEmpresaExists(cliente.getEmpresa().getId());
         if (cliente.getNuit() != null && !cliente.getNuit().isEmpty()) {
             validateNuitUniqueness(cliente.getNuit(), null);
         }
         if (cliente.getEmail() != null && !cliente.getEmail().isEmpty()) {
             validateEmailUniqueness(cliente.getEmail(), null);
         }
+        cliente.setEmpresa(getAuthenticatedUser().getEmpresa());
         validateDesconto(cliente.getDescontoPadrao());
         validateLimiteCredito(cliente.getLimiteCredito());
     }
@@ -169,5 +176,10 @@ public class ClienteService extends BaseServiceImpl<Cliente, Long, ClienteReposi
 
     public long countActiveByEmpresaId(Long empresaId) {
         return clienteRepository.countActiveByEmpresaId(empresaId);
+    }
+
+    private User getAuthenticatedUser() {
+        UserPrincipal principal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        return userRepository.findById(principal.getId()).get();
     }
 }

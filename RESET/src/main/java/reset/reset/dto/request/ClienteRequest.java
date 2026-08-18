@@ -21,7 +21,6 @@ public class ClienteRequest {
     private String tipo;
     private BigDecimal descontoPadrao;
     private BigDecimal limiteCredito;
-    private Long empresaId;
 
     public Cliente toEntity() {
         Cliente cliente = new Cliente();
@@ -33,12 +32,6 @@ public class ClienteRequest {
         cliente.setTipo(this.tipo);
         cliente.setDescontoPadrao(this.descontoPadrao != null ? this.descontoPadrao : BigDecimal.ZERO);
         cliente.setLimiteCredito(this.limiteCredito != null ? this.limiteCredito : BigDecimal.ZERO);
-
-        if (this.empresaId != null) {
-            Empresa empresa = new Empresa();
-            empresa.setId(this.empresaId);
-            cliente.setEmpresa(empresa);
-        }
 
         return cliente;
     }

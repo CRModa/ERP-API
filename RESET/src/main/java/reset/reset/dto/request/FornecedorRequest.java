@@ -14,7 +14,6 @@ public class FornecedorRequest {
     private String endereco;
     private String telefone;
     private String email;
-    private Long empresaId;
 
     public Fornecedor toEntity() {
         Fornecedor fornecedor = new Fornecedor();
@@ -24,11 +23,6 @@ public class FornecedorRequest {
         fornecedor.setTelefone(this.telefone);
         fornecedor.setEmail(this.email);
 
-        if (this.empresaId != null) {
-            Empresa empresa = new Empresa();
-            empresa.setId(this.empresaId);
-            fornecedor.setEmpresa(empresa);
-        }
 
         return fornecedor;
     }

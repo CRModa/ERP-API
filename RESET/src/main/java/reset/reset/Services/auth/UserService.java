@@ -4,6 +4,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -14,6 +15,7 @@ import reset.reset.Models.auth.Role;
 import reset.reset.Models.auth.User;
 import reset.reset.Repositories.auth.RoleRepository;
 import reset.reset.Repositories.auth.UserRepository;
+import reset.reset.Security.UserPrincipal;
 import reset.reset.Services.base.BaseServiceImpl;
 import reset.reset.dto.auth.ChangePasswordRequest;
 import reset.reset.dto.auth.UserResumoDTO;
@@ -34,6 +36,8 @@ public class UserService extends BaseServiceImpl<User, Long, UserRepository> {
     private RoleRepository roleRepository;
     @Autowired
     private PasswordEncoder passwordEncoder;
+    @Autowired
+    private UserRepository userRepository;
 
     public UserService(UserRepository repository) {
         super(repository);
@@ -195,5 +199,10 @@ public class UserService extends BaseServiceImpl<User, Long, UserRepository> {
 
     public boolean existsByEmail(String email) {
         return utilizadorRepository.existsByEmail(email);
+    }
+
+    private User getAuthenticatedUser() {
+        UserPrincipal principal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        return userRepository.findById(principal.getId()).get();
     }
 }

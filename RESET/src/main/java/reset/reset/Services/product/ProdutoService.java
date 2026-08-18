@@ -5,17 +5,21 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import reset.reset.Exceptions.BusinessException;
 import reset.reset.Exceptions.DuplicateEntityException;
 import reset.reset.Exceptions.EntityNotFoundException;
+import reset.reset.Models.auth.User;
 import reset.reset.Models.product.Produto;
+import reset.reset.Repositories.auth.UserRepository;
 import reset.reset.Repositories.core.EmpresaRepository;
 import reset.reset.Repositories.product.CategoriaProdutoRepository;
 import reset.reset.Repositories.product.IvaRepository;
 import reset.reset.Repositories.product.ProdutoRepository;
 import reset.reset.Repositories.stock.StockRepository;
+import reset.reset.Security.UserPrincipal;
 import reset.reset.Services.base.BaseServiceImpl;
 import reset.reset.dto.filter.ProdutoFilter;
 import reset.reset.dto.projection.ProdutoResumo;
@@ -37,6 +41,8 @@ public class ProdutoService extends BaseServiceImpl<Produto, Long, ProdutoReposi
     private EmpresaRepository empresaRepository;
     @Autowired
     private StockRepository stockRepository;
+    @Autowired
+    private UserRepository userRepository;
 
     public ProdutoService(ProdutoRepository repository) {
         super(repository);
@@ -45,12 +51,13 @@ public class ProdutoService extends BaseServiceImpl<Produto, Long, ProdutoReposi
 
     @Override
     protected void validateBeforeSave(Produto produto) {
-        validateEmpresaExists(produto.getEmpresa().getId());
+//        validateEmpresaExists(produto.getEmpresa().getId());
         validateCategoriaExists(produto.getCategoria().getId());
         validateIvaExists(produto.getIva().getId());
-        validateCodigoUniqueness(produto.getCodigo(), produto.getEmpresa().getId(), null);
+        validateCodigoUniqueness(produto.getCodigo(), getCurrentEmpresaId(), null);
         validatePrecoVenda(produto.getPrecoVenda());
         validatePrecoCusto(produto.getPrecoCusto());
+        produto.setEmpresa(getAuthenticatedUser().getEmpresa());
     }
 
     @Override
@@ -182,7 +189,11 @@ public class ProdutoService extends BaseServiceImpl<Produto, Long, ProdutoReposi
     }
 
     private Long getCurrentEmpresaId() {
-        // Get from security context or request
-        return 1L; // Placeholder
+        return getAuthenticatedUser().getEmpresa().getId();
+    }
+
+    private User getAuthenticatedUser() {
+        UserPrincipal principal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        return userRepository.findById(principal.getId()).get();
     }
 }

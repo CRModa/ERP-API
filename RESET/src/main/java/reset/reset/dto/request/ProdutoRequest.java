@@ -22,9 +22,6 @@ public class ProdutoRequest {
     private BigDecimal precoVenda;
     private BigDecimal precoCusto;
 
-    @NotNull(message = "Empresa ID is required")
-    private Long empresaId;
-
     @NotNull(message = "Categoria ID is required")
     private Long categoriaId;
 
@@ -40,7 +37,6 @@ public class ProdutoRequest {
         produto.setPrecoCusto(this.precoCusto != null ? this.precoCusto : BigDecimal.ZERO);
 
         Empresa empresa = new Empresa();
-        empresa.setId(this.empresaId);
         produto.setEmpresa(empresa);
 
         CategoriaProduto categoria = new CategoriaProduto();
