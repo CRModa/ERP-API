@@ -41,7 +41,7 @@ public class ProdutoDTO {
                 .precoVenda(produto.getPrecoVenda())
                 .precoCusto(produto.getPrecoCusto())
                 .ativo(produto.getAtivo())
-                .dataRegisto(produto.getDataRegisto())
+                .dataRegisto(produto.getCreatedAt())
                 .empresaId(produto.getEmpresa() != null ? produto.getEmpresa().getId() : null)
                 .empresaNome(produto.getEmpresa() != null ? produto.getEmpresa().getNome() : null)
                 .categoriaId(produto.getCategoria() != null ? produto.getCategoria().getId() : null)

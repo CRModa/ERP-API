@@ -9,6 +9,8 @@ import reset.reset.Models.core.Empresa;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.HashSet;
+import java.util.Set;
 
 @Entity
 @Table(name = "produto")
@@ -29,6 +31,10 @@ public class Produto {
     @JoinColumn(name = "categoria_id", nullable = false)
     private CategoriaProduto categoria;
 
+    @ManyToOne
+    @JoinColumn(name = "iva_id")
+    private Iva iva;
+
     @Column(length = 50)
     private String codigo;
 
@@ -44,14 +50,34 @@ public class Produto {
     @Column(name = "preco_custo", precision = 15, scale = 2)
     private BigDecimal precoCusto;
 
-    @ManyToOne
-    @JoinColumn(name = "iva_id")
-    private Iva iva;
+//    @Column(name = "tempo_preparo")
+//    private Integer tempoPreparo; // em minutos
 
-    @Column(columnDefinition = "BOOLEAN DEFAULT TRUE")
+//    @Column(name = "ingredientes", columnDefinition = "TEXT")
+//    private String ingredientes;
+
+    @Column(name = "imagem", columnDefinition = "TEXT")
+    private String imagem;
+
+    @Column(name = "destaque", columnDefinition = "BOOLEAN DEFAULT FALSE")
+    private Boolean destaque = false;
+
+    @Column(name = "disponivel", columnDefinition = "BOOLEAN DEFAULT TRUE")
+    private Boolean disponivel = true;
+
+    @Column(name = "ativo", columnDefinition = "BOOLEAN DEFAULT TRUE")
     private Boolean ativo = true;
 
+    @Column(name = "is_composto", columnDefinition = "BOOLEAN DEFAULT FALSE")
+    private Boolean isComposto = false;
+
     @CreationTimestamp
-    @Column(name = "data_registo", updatable = false)
-    private LocalDateTime dataRegisto;
+    @Column(name = "created_at", updatable = false)
+    private LocalDateTime createdAt;
+
+    @OneToMany(mappedBy = "produtoPai", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private Set<ProdutoCompostoItem> itensComposto = new HashSet<>();
+
+    @OneToMany(mappedBy = "produtoFilho", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private Set<ProdutoCompostoItem> itensPai = new HashSet<>();
 }

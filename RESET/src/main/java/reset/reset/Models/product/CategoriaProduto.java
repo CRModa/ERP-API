@@ -29,4 +29,16 @@ public class CategoriaProduto {
 
     @Column(columnDefinition = "BOOLEAN DEFAULT TRUE")
     private Boolean ativo = true;
+
+    @Column(name = "visivel_restaurante", columnDefinition = "BOOLEAN DEFAULT FALSE")
+    private Boolean visivelRestaurante = false;
+
+    @Column(name = "visivel_pos", columnDefinition = "BOOLEAN DEFAULT FALSE")
+    private Boolean visivelPos = false;
+
+    @Column(name = "visivel_farmacia", columnDefinition = "BOOLEAN DEFAULT FALSE")
+    private Boolean visivelFarmacia = false;
+
+    @Column(name = "visivel_web", columnDefinition = "BOOLEAN DEFAULT FALSE")
+    private Boolean visivelWeb = false;
 }
