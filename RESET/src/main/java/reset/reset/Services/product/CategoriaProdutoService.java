@@ -135,7 +135,7 @@ public class CategoriaProdutoService extends BaseServiceImpl<CategoriaProduto, L
         existing.setVisivelFarmacia(request.getVisivelFarmacia());
         existing.setVisivelWeb(request.getVisivelWeb());
 
-        CategoriaProduto updated = save(existing);
+        CategoriaProduto updated = repository.save(existing);
         log.info("Categoria atualizada: {}", updated.getDescricao());
         return CategoriaProdutoResponse.fromEntity(updated);
     }

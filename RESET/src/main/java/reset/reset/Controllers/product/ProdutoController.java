@@ -72,33 +72,30 @@ public class ProdutoController extends BaseController {
         return success(produtos);
     }
 
-    @GetMapping("/empresa/{empresaId}")
+    @GetMapping("/empresa")
     @Operation(summary = "Get products by company")
     @PreAuthorize("hasPermission('PRODUTO_READ')")
     public ResponseEntity<ApiResponse<Page<Produto>>> findByEmpresa(
-            @PathVariable Long empresaId,
             @PageableDefault(size = 20) Pageable pageable) {
-        Page<Produto> produtos = produtoService.findByEmpresaId(empresaId, pageable);
+        Page<Produto> produtos = produtoService.findByEmpresaId(pageable);
         return success(produtos);
     }
 
-    @GetMapping("/empresa/{empresaId}/active")
+    @GetMapping("/empresa/active")
     @Operation(summary = "Get active products by company")
     @PreAuthorize("hasPermission('PRODUTO_READ')")
     public ResponseEntity<ApiResponse<Page<Produto>>> findActiveByEmpresa(
-            @PathVariable Long empresaId,
             @PageableDefault(size = 20) Pageable pageable) {
-        Page<Produto> produtos = produtoService.findActiveByEmpresaId(empresaId, pageable);
+        Page<Produto> produtos = produtoService.findActiveByEmpresaId(pageable);
         return success(produtos);
     }
 
-    @GetMapping("/empresa/{empresaId}/resumo")
+    @GetMapping("/empresa/resumo")
     @Operation(summary = "Get product summary by company")
     @PreAuthorize("hasPermission('PRODUTO_READ')")
     public ResponseEntity<ApiResponse<Page<ProdutoResumo>>> findResumoByEmpresa(
-            @PathVariable Long empresaId,
             @PageableDefault(size = 20) Pageable pageable) {
-        Page<ProdutoResumo> produtos = produtoService.findProdutoResumoByEmpresaId(empresaId, pageable);
+        Page<ProdutoResumo> produtos = produtoService.findProdutoResumoByEmpresaId(pageable);
         return success(produtos);
     }
 

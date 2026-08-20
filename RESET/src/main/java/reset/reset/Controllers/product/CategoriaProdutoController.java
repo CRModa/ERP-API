@@ -65,7 +65,6 @@ public class CategoriaProdutoController extends BaseController {
     @Operation(summary = "Listar categorias com paginação")
     @PreAuthorize("hasPermission('CATEGORIA_READ')")
     public ResponseEntity<ApiResponse<Page<CategoriaProdutoResumoDTO>>> listar(
-            @RequestParam Long empresaId,
             @PageableDefault(size = 20, sort = "descricao", direction = Sort.Direction.ASC) Pageable pageable) {
         Page<CategoriaProdutoResumoDTO> categorias = categoriaService.listarCategoriasPorEmpresa(pageable);
         return success(categorias);
@@ -75,7 +74,6 @@ public class CategoriaProdutoController extends BaseController {
     @Operation(summary = "Listar categorias ativas com paginação")
     @PreAuthorize("hasPermission('CATEGORIA_READ')")
     public ResponseEntity<ApiResponse<Page<CategoriaProdutoResumoDTO>>> listarAtivas(
-            @RequestParam Long empresaId,
             @PageableDefault(size = 20, sort = "descricao", direction = Sort.Direction.ASC) Pageable pageable) {
         Page<CategoriaProdutoResumoDTO> categorias = categoriaService.listarCategoriasAtivasPorEmpresa(pageable);
         return success(categorias);

@@ -30,9 +30,8 @@ public class CardapioController extends BaseController {
     @GetMapping("/categorias")
     @Operation(summary = "Listar categorias do cardápio")
     @PreAuthorize("hasPermission('CARDAPIO_READ')")
-    public ResponseEntity<ApiResponse<List<CategoriaRestauranteDTO>>> listarCategorias(
-            @RequestParam Long empresaId) {
-        List<CategoriaRestauranteDTO> categorias = produtoService.findCategoriasRestaurante(empresaId);
+    public ResponseEntity<ApiResponse<List<CategoriaRestauranteDTO>>> listarCategorias() {
+        List<CategoriaRestauranteDTO> categorias = produtoService.findCategoriasRestaurante();
         return success(categorias);
     }
 
@@ -41,9 +40,8 @@ public class CardapioController extends BaseController {
     @GetMapping
     @Operation(summary = "Listar todos os itens do cardápio")
     @PreAuthorize("hasPermission('CARDAPIO_READ')")
-    public ResponseEntity<ApiResponse<List<ProdutoRestauranteDTO>>> listarCardapio(
-            @RequestParam Long empresaId) {
-        List<ProdutoRestauranteDTO> cardapio = produtoService.findProdutosRestaurante(empresaId);
+    public ResponseEntity<ApiResponse<List<ProdutoRestauranteDTO>>> listarCardapio() {
+        List<ProdutoRestauranteDTO> cardapio = produtoService.findProdutosRestaurante();
         return success(cardapio);
     }
 
@@ -59,9 +57,8 @@ public class CardapioController extends BaseController {
     @GetMapping("/destaques")
     @Operation(summary = "Listar itens em destaque")
     @PreAuthorize("hasPermission('CARDAPIO_READ')")
-    public ResponseEntity<ApiResponse<List<ProdutoRestauranteDTO>>> listarDestaques(
-            @RequestParam Long empresaId) {
-        List<ProdutoRestauranteDTO> destaques = produtoService.findProdutosDestaque(empresaId);
+    public ResponseEntity<ApiResponse<List<ProdutoRestauranteDTO>>> listarDestaques() {
+        List<ProdutoRestauranteDTO> destaques = produtoService.findProdutosDestaque();
         return success(destaques);
     }
 

@@ -339,15 +339,18 @@ public class ProdutoService extends BaseServiceImpl<Produto, Long, ProdutoReposi
         return produtoRepository.filter(filter);
     }
 
-    public Page<Produto> findByEmpresaId(Long empresaId, Pageable pageable) {
+    public Page<Produto> findByEmpresaId(Pageable pageable) {
+        Long empresaId = getAuthenticatedUser().getEmpresa().getId();
         return produtoRepository.findByEmpresaId(empresaId, pageable);
     }
 
-    public Page<Produto> findActiveByEmpresaId(Long empresaId, Pageable pageable) {
+    public Page<Produto> findActiveByEmpresaId(Pageable pageable) {
+        Long empresaId = getAuthenticatedUser().getEmpresa().getId();
         return produtoRepository.findActiveByEmpresaId(empresaId, pageable);
     }
 
-    public Page<ProdutoResumo> findProdutoResumoByEmpresaId(Long empresaId, Pageable pageable) {
+    public Page<ProdutoResumo> findProdutoResumoByEmpresaId(Pageable pageable) {
+        Long empresaId = getAuthenticatedUser().getEmpresa().getId();
         return produtoRepository.findProdutoResumoByEmpresaId(empresaId, pageable);
     }
 
@@ -358,7 +361,8 @@ public class ProdutoService extends BaseServiceImpl<Produto, Long, ProdutoReposi
 
     // ==================== MÉTODOS PARA RESTAURANTE ====================
 
-    public List<ProdutoRestauranteDTO> findProdutosRestaurante(Long empresaId) {
+    public List<ProdutoRestauranteDTO> findProdutosRestaurante() {
+        Long empresaId = getAuthenticatedUser().getEmpresa().getId();
         List<Produto> produtos = produtoRepository.findByEmpresaIdAndCategoriaVisivelRestaurante(empresaId);
         return produtos.stream()
                 .filter(Produto::getDisponivel)
@@ -376,7 +380,8 @@ public class ProdutoService extends BaseServiceImpl<Produto, Long, ProdutoReposi
                 .collect(Collectors.toList());
     }
 
-    public List<ProdutoRestauranteDTO> findProdutosDestaque(Long empresaId) {
+    public List<ProdutoRestauranteDTO> findProdutosDestaque() {
+        Long empresaId = getAuthenticatedUser().getEmpresa().getId();
         List<Produto> produtos = produtoRepository.findDestaquesByEmpresaId(empresaId);
         return produtos.stream()
                 .filter(Produto::getAtivo)
@@ -428,7 +433,8 @@ public class ProdutoService extends BaseServiceImpl<Produto, Long, ProdutoReposi
 //        return toRestauranteDTO(produto);
 //    }
 
-    public List<CategoriaRestauranteDTO> findCategoriasRestaurante(Long empresaId) {
+    public List<CategoriaRestauranteDTO> findCategoriasRestaurante() {
+        Long empresaId = getAuthenticatedUser().getEmpresa().getId();
         List<CategoriaProduto> categorias = categoriaRepository.findByEmpresaIdAndVisivelRestauranteTrue(empresaId);
         return categorias.stream()
                 .map(this::toCategoriaRestauranteDTO)
@@ -602,11 +608,13 @@ public class ProdutoService extends BaseServiceImpl<Produto, Long, ProdutoReposi
         return produtoRepository.save(produto);
     }
 
-    public List<Produto> findActiveByEmpresaIdOrderByNome(Long empresaId) {
+    public List<Produto> findActiveByEmpresaIdOrderByNome() {
+        Long empresaId = getAuthenticatedUser().getEmpresa().getId();
         return produtoRepository.findActiveByEmpresaIdOrderByNome(empresaId);
     }
 
-    public long countActiveByEmpresaId(Long empresaId) {
+    public long countActiveByEmpresaId() {
+        Long empresaId = getAuthenticatedUser().getEmpresa().getId();
         return produtoRepository.countActiveByEmpresaId(empresaId);
     }
 
