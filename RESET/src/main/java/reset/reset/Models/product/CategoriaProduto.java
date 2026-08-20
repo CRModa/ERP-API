@@ -6,6 +6,8 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import reset.reset.Models.core.Empresa;
 
+import java.util.List;
+
 @Entity
 @Table(name = "categoria_produto")
 @Data
@@ -41,4 +43,7 @@ public class CategoriaProduto {
 
     @Column(name = "visivel_web", columnDefinition = "BOOLEAN DEFAULT FALSE")
     private Boolean visivelWeb = false;
+
+    @OneToMany(mappedBy = "categoria", cascade = CascadeType.ALL)
+    private List<Produto> produtos;
 }

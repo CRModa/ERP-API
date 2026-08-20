@@ -1,6 +1,5 @@
 package reset.reset.Services.product;
 
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -12,37 +11,63 @@ import reset.reset.Exceptions.BusinessException;
 import reset.reset.Exceptions.DuplicateEntityException;
 import reset.reset.Exceptions.EntityNotFoundException;
 import reset.reset.Models.auth.User;
+import reset.reset.Models.product.CategoriaProduto;
+import reset.reset.Models.product.Iva;
 import reset.reset.Models.product.Produto;
+import reset.reset.Models.product.ProdutoCompostoItem;
 import reset.reset.Repositories.auth.UserRepository;
 import reset.reset.Repositories.core.EmpresaRepository;
 import reset.reset.Repositories.product.CategoriaProdutoRepository;
 import reset.reset.Repositories.product.IvaRepository;
+import reset.reset.Repositories.product.ProdutoCompostoItemRepository;
 import reset.reset.Repositories.product.ProdutoRepository;
+import reset.reset.Repositories.stock.ArmazemRepository;
 import reset.reset.Repositories.stock.StockRepository;
 import reset.reset.Security.UserPrincipal;
 import reset.reset.Services.base.BaseServiceImpl;
 import reset.reset.dto.filter.ProdutoFilter;
+import reset.reset.dto.product.ProdutoCompostoItemDTO;
+import reset.reset.dto.product.ProdutoRestauranteDTO;
 import reset.reset.dto.projection.ProdutoResumo;
+import reset.reset.dto.product.ProdutoCompostoDTO;
+import reset.reset.dto.request.product.ProdutoCompostoItemRequest;
+import reset.reset.dto.request.product.ProdutoCompostoRequest;
+import reset.reset.dto.request.product.ProdutoRequest;
+import reset.reset.dto.restaurant.CategoriaRestauranteDTO;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
-//@RequiredArgsConstructor
 @Slf4j
 public class ProdutoService extends BaseServiceImpl<Produto, Long, ProdutoRepository> {
 
     private final ProdutoRepository produtoRepository;
+
     @Autowired
     private CategoriaProdutoRepository categoriaRepository;
+
     @Autowired
     private IvaRepository ivaRepository;
+
     @Autowired
     private EmpresaRepository empresaRepository;
+
     @Autowired
     private StockRepository stockRepository;
+
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private ProdutoCompostoItemRepository produtoCompostoItemRepository;
+
+    @Autowired
+    private ArmazemRepository armazemRepository;
 
     public ProdutoService(ProdutoRepository repository) {
         super(repository);
@@ -51,24 +76,35 @@ public class ProdutoService extends BaseServiceImpl<Produto, Long, ProdutoReposi
 
     @Override
     protected void validateBeforeSave(Produto produto) {
-//        validateEmpresaExists(produto.getEmpresa().getId());
         validateCategoriaExists(produto.getCategoria().getId());
         validateIvaExists(produto.getIva().getId());
         validateCodigoUniqueness(produto.getCodigo(), getCurrentEmpresaId(), null);
         validatePrecoVenda(produto.getPrecoVenda());
         validatePrecoCusto(produto.getPrecoCusto());
-        produto.setEmpresa(getAuthenticatedUser().getEmpresa());
+
+        User user = getAuthenticatedUser();
+        produto.setEmpresa(user.getEmpresa());
+        produto.setAtivo(true);
+
+        if (produto.getDisponivel() == null) {
+            produto.setDisponivel(true);
+        }
+        if (produto.getIsComposto() == null) {
+            produto.setIsComposto(false);
+        }
+        if (produto.getDestaque() == null) {
+            produto.setDestaque(false);
+        }
     }
 
     @Override
     protected void validateBeforeUpdate(Long id, Produto produto) {
         Produto existing = findByIdOrThrow(id);
-        validateEmpresaExists(produto.getEmpresa().getId());
         validateCategoriaExists(produto.getCategoria().getId());
         validateIvaExists(produto.getIva().getId());
 
         if (!existing.getCodigo().equals(produto.getCodigo())) {
-            validateCodigoUniqueness(produto.getCodigo(), produto.getEmpresa().getId(), id);
+            validateCodigoUniqueness(produto.getCodigo(), getCurrentEmpresaId(), id);
         }
         validatePrecoVenda(produto.getPrecoVenda());
         validatePrecoCusto(produto.getPrecoCusto());
@@ -93,12 +129,14 @@ public class ProdutoService extends BaseServiceImpl<Produto, Long, ProdutoReposi
     }
 
     private void validateCodigoUniqueness(String codigo, Long empresaId, Long excludeId) {
-        produtoRepository.findByCodigo(codigo)
-                .ifPresent(p -> {
-                    if (excludeId == null || !p.getId().equals(excludeId)) {
-                        throw new DuplicateEntityException("Product code already exists: " + codigo);
-                    }
-                });
+        if (codigo != null && !codigo.isEmpty()) {
+            produtoRepository.findByCodigo(codigo)
+                    .ifPresent(p -> {
+                        if (excludeId == null || !p.getId().equals(excludeId)) {
+                            throw new DuplicateEntityException("Product code already exists: " + codigo);
+                        }
+                    });
+        }
     }
 
     private void validatePrecoVenda(BigDecimal preco) {
@@ -113,6 +151,144 @@ public class ProdutoService extends BaseServiceImpl<Produto, Long, ProdutoReposi
         }
     }
 
+    private void validateProdutoFilhoExists(Long produtoId) {
+        if (!produtoRepository.existsById(produtoId)) {
+            throw new EntityNotFoundException("Product not found with id: " + produtoId);
+        }
+    }
+
+    private void validateNaoPodeSerComposto(Produto produto) {
+        if (produto.getIsComposto() != null && produto.getIsComposto()) {
+            throw new BusinessException("Cannot add a composed product as an item of another composed product");
+        }
+    }
+
+    // ==================== CRUD PRODUTO COMPOSTO ====================
+
+    @Transactional
+    public ProdutoCompostoDTO criarProdutoComposto(ProdutoCompostoRequest request) {
+        // Validar e criar o produto pai
+        Produto produto = new Produto();
+        produto.setNome(request.getNome());
+        produto.setCodigo(request.getCodigo());
+        produto.setDescricao(request.getDescricao());
+        produto.setPrecoVenda(request.getPrecoVenda());
+        produto.setPrecoCusto(request.getPrecoCusto());
+        produto.setTempoPreparo(request.getTempoPreparo());
+        produto.setIngredientes(request.getIngredientes());
+        produto.setImagem(request.getImagem());
+        produto.setDestaque(request.getDestaque());
+        produto.setDisponivel(request.getDisponivel());
+        produto.setIsComposto(true);
+        produto.setAtivo(true);
+
+        CategoriaProduto categoria = categoriaRepository.findById(request.getCategoriaId())
+                .orElseThrow(() -> new EntityNotFoundException("Category not found"));
+        produto.setCategoria(categoria);
+
+        Iva iva = ivaRepository.findById(request.getIvaId())
+                .orElseThrow(() -> new EntityNotFoundException("IVA not found"));
+        produto.setIva(iva);
+
+        User user = getAuthenticatedUser();
+        produto.setEmpresa(user.getEmpresa());
+
+        // Salvar produto pai
+        Produto saved = produtoRepository.save(produto);
+
+        // Adicionar itens do produto composto
+        if (request.getItensComposto() != null && !request.getItensComposto().isEmpty()) {
+            Set<ProdutoCompostoItem> itens = new HashSet<>();
+            for (ProdutoCompostoItemRequest itemRequest : request.getItensComposto()) {
+                Produto produtoFilho = produtoRepository.findById(itemRequest.getProdutoFilhoId())
+                        .orElseThrow(() -> new EntityNotFoundException("Product not found with id: " + itemRequest.getProdutoFilhoId()));
+
+                // Verificar se o produto filho não é composto
+                validateNaoPodeSerComposto(produtoFilho);
+
+                ProdutoCompostoItem item = new ProdutoCompostoItem();
+                item.setProdutoPai(saved);
+                item.setProdutoFilho(produtoFilho);
+                item.setQuantidade(itemRequest.getQuantidade());
+                item.setPrecoAdicional(itemRequest.getPrecoAdicional() != null ?
+                        itemRequest.getPrecoAdicional() : BigDecimal.ZERO);
+                item.setObrigatorio(itemRequest.getObrigatorio() != null ?
+                        itemRequest.getObrigatorio() : true);
+
+                itens.add(item);
+            }
+            saved.setItensComposto(itens);
+            saved = produtoRepository.save(saved);
+        }
+
+        log.info("Produto composto criado: {}", saved.getNome());
+        return toCompostoDTO(saved);
+    }
+
+    @Transactional
+    public ProdutoCompostoDTO atualizarProdutoComposto(Long id, ProdutoCompostoRequest request) {
+        Produto produto = findByIdOrThrow(id);
+
+        if (!produto.getIsComposto()) {
+            throw new BusinessException("Product is not a composed product");
+        }
+
+        // Atualizar dados básicos
+        produto.setNome(request.getNome());
+        produto.setCodigo(request.getCodigo());
+        produto.setDescricao(request.getDescricao());
+        produto.setPrecoVenda(request.getPrecoVenda());
+        produto.setPrecoCusto(request.getPrecoCusto());
+        produto.setTempoPreparo(request.getTempoPreparo());
+        produto.setIngredientes(request.getIngredientes());
+        produto.setImagem(request.getImagem());
+        produto.setDestaque(request.getDestaque());
+        produto.setDisponivel(request.getDisponivel());
+
+        CategoriaProduto categoria = categoriaRepository.findById(request.getCategoriaId())
+                .orElseThrow(() -> new EntityNotFoundException("Category not found"));
+        produto.setCategoria(categoria);
+
+        Iva iva = ivaRepository.findById(request.getIvaId())
+                .orElseThrow(() -> new EntityNotFoundException("IVA not found"));
+        produto.setIva(iva);
+
+        // Remover itens antigos
+        if (produto.getItensComposto() != null) {
+            produtoCompostoItemRepository.deleteAll(produto.getItensComposto());
+            produto.getItensComposto().clear();
+        }
+
+        // Adicionar novos itens
+        if (request.getItensComposto() != null && !request.getItensComposto().isEmpty()) {
+            Set<ProdutoCompostoItem> itens = new HashSet<>();
+            for (ProdutoCompostoItemRequest itemRequest : request.getItensComposto()) {
+                Produto produtoFilho = produtoRepository.findById(itemRequest.getProdutoFilhoId())
+                        .orElseThrow(() -> new EntityNotFoundException("Product not found with id: " + itemRequest.getProdutoFilhoId()));
+
+                validateNaoPodeSerComposto(produtoFilho);
+
+                ProdutoCompostoItem item = new ProdutoCompostoItem();
+                item.setProdutoPai(produto);
+                item.setProdutoFilho(produtoFilho);
+                item.setQuantidade(itemRequest.getQuantidade());
+                item.setPrecoAdicional(itemRequest.getPrecoAdicional() != null ?
+                        itemRequest.getPrecoAdicional() : BigDecimal.ZERO);
+                item.setObrigatorio(itemRequest.getObrigatorio() != null ?
+                        itemRequest.getObrigatorio() : true);
+
+                itens.add(item);
+            }
+            produto.setItensComposto(itens);
+        }
+
+        Produto updated = produtoRepository.save(produto);
+        log.info("Produto composto atualizado: {}", updated.getNome());
+        return toCompostoDTO(updated);
+    }
+
+    // ==================== CRUD PRODUTO SIMPLES ====================
+
     @Override
     @Transactional
     public Produto save(Produto produto) {
@@ -122,38 +298,42 @@ public class ProdutoService extends BaseServiceImpl<Produto, Long, ProdutoReposi
         if (produto.getPrecoCusto() == null) {
             produto.setPrecoCusto(BigDecimal.ZERO);
         }
+        produto.setIsComposto(false);
         return super.save(produto);
     }
 
     @Transactional
-    public Produto atualizarPrecoVenda(Long id, BigDecimal novoPreco) {
-        Produto produto = findByIdOrThrow(id);
-        validatePrecoVenda(novoPreco);
-        produto.setPrecoVenda(novoPreco);
-        return produtoRepository.save(produto);
-    }
-
-    @Transactional
-    public Produto atualizarPrecoCusto(Long id, BigDecimal novoPreco) {
-        Produto produto = findByIdOrThrow(id);
-        validatePrecoCusto(novoPreco);
-        produto.setPrecoCusto(novoPreco);
-        return produtoRepository.save(produto);
-    }
-
-    @Transactional
-    public Produto ativarProduto(Long id) {
-        Produto produto = findByIdOrThrow(id);
+    public Produto criarProdutoSimples(ProdutoRequest request) {
+        Produto produto = request.toEntity();
+        User user = getAuthenticatedUser();
+        produto.setEmpresa(user.getEmpresa());
         produto.setAtivo(true);
-        return produtoRepository.save(produto);
+        produto.setIsComposto(false);
+        produto.setDisponivel(true);
+        return save(produto);
     }
 
     @Transactional
-    public Produto desativarProduto(Long id) {
+    public Produto atualizarProdutoSimples(Long id, ProdutoRequest request) {
         Produto produto = findByIdOrThrow(id);
-        produto.setAtivo(false);
+        produto.setNome(request.getNome());
+        produto.setCodigo(request.getCodigo());
+        produto.setDescricao(request.getDescricao());
+        produto.setPrecoVenda(request.getPrecoVenda());
+        produto.setPrecoCusto(request.getPrecoCusto());
+
+        CategoriaProduto categoria = categoriaRepository.findById(request.getCategoriaId())
+                .orElseThrow(() -> new EntityNotFoundException("Category not found"));
+        produto.setCategoria(categoria);
+
+        Iva iva = ivaRepository.findById(request.getIvaId())
+                .orElseThrow(() -> new EntityNotFoundException("IVA not found"));
+        produto.setIva(iva);
+
         return produtoRepository.save(produto);
     }
+
+    // ==================== MÉTODOS DE LISTAGEM ====================
 
     public Page<Produto> filter(ProdutoFilter filter) {
         return produtoRepository.filter(filter);
@@ -176,8 +356,250 @@ public class ProdutoService extends BaseServiceImpl<Produto, Long, ProdutoReposi
                 getCurrentEmpresaId(), categoriaId, pageable);
     }
 
-    public List<Produto> findProdutosByPriceRange(BigDecimal minPrice, BigDecimal maxPrice) {
-        return produtoRepository.findProdutosByPriceRange(minPrice, maxPrice);
+    // ==================== MÉTODOS PARA RESTAURANTE ====================
+
+    public List<ProdutoRestauranteDTO> findProdutosRestaurante(Long empresaId) {
+        List<Produto> produtos = produtoRepository.findByEmpresaIdAndCategoriaVisivelRestaurante(empresaId);
+        return produtos.stream()
+                .filter(Produto::getDisponivel)
+                .filter(Produto::getAtivo)
+                .map(this::toRestauranteDTO)
+                .collect(Collectors.toList());
+    }
+
+    public List<ProdutoRestauranteDTO> findProdutosByCategoriaRestaurante(Long categoriaId) {
+        List<Produto> produtos = produtoRepository.findByCategoriaIdAndDisponivelTrue(categoriaId);
+        return produtos.stream()
+                .filter(Produto::getAtivo)
+                .filter(Produto::getDisponivel)
+                .map(this::toRestauranteDTO)
+                .collect(Collectors.toList());
+    }
+
+    public List<ProdutoRestauranteDTO> findProdutosDestaque(Long empresaId) {
+        List<Produto> produtos = produtoRepository.findDestaquesByEmpresaId(empresaId);
+        return produtos.stream()
+                .filter(Produto::getAtivo)
+                .filter(Produto::getDisponivel)
+                .map(this::toRestauranteDTO)
+                .collect(Collectors.toList());
+    }
+
+    public ProdutoRestauranteDTO findProdutoRestauranteById(Long id) {
+        Produto produto = findByIdOrThrow(id);
+        if (!produto.getAtivo() || !produto.getDisponivel()) {
+            throw new BusinessException("Product is not available");
+        }
+        return toRestauranteDTO(produto);
+    }
+
+//    public List<ProdutoRestauranteDTO> findProdutosRestaurante(Long empresaId) {
+//        List<Produto> produtos = produtoRepository.findByEmpresaIdAndCategoriaVisivelRestaurante(empresaId);
+//        return produtos.stream()
+//                .filter(Produto::getAtivo)
+//                .filter(Produto::getDisponivel)
+//                .map(this::toRestauranteDTO)
+//                .collect(Collectors.toList());
+//    }
+
+//    public List<ProdutoRestauranteDTO> findProdutosByCategoriaRestaurante(Long categoriaId) {
+//        List<Produto> produtos = produtoRepository.findByCategoriaIdAndDisponivelTrue(categoriaId);
+//        return produtos.stream()
+//                .filter(Produto::getAtivo)
+//                .filter(Produto::getDisponivel)
+//                .map(this::toRestauranteDTO)
+//                .collect(Collectors.toList());
+//    }
+
+//    public List<ProdutoRestauranteDTO> findProdutosDestaque(Long empresaId) {
+//        List<Produto> produtos = produtoRepository.findDestaquesByEmpresaId(empresaId);
+//        return produtos.stream()
+//                .filter(Produto::getAtivo)
+//                .filter(Produto::getDisponivel)
+//                .map(this::toRestauranteDTO)
+//                .collect(Collectors.toList());
+//    }
+
+//    public ProdutoRestauranteDTO findProdutoRestauranteById(Long id) {
+//        Produto produto = findByIdOrThrow(id);
+//        if (!produto.getAtivo() || !produto.getDisponivel()) {
+//            throw new BusinessException("Produto não está disponível");
+//        }
+//        return toRestauranteDTO(produto);
+//    }
+
+    public List<CategoriaRestauranteDTO> findCategoriasRestaurante(Long empresaId) {
+        List<CategoriaProduto> categorias = categoriaRepository.findByEmpresaIdAndVisivelRestauranteTrue(empresaId);
+        return categorias.stream()
+                .map(this::toCategoriaRestauranteDTO)
+                .collect(Collectors.toList());
+    }
+
+    // ==================== MÉTODOS DE CONVERSÃO ====================
+
+//    private ProdutoRestauranteDTO toRestauranteDTO(Produto produto) {
+//        return ProdutoRestauranteDTO.builder()
+//                .id(produto.getId())
+//                .codigo(produto.getCodigo())
+//                .nome(produto.getNome())
+//                .descricao(produto.getDescricao())
+//                .precoVenda(produto.getPrecoVenda())
+////                .precoCusto(produto.getPrecoCusto())
+//                .tempoPreparo(produto.getTempoPreparo())
+//                .ingredientes(produto.getIngredientes())
+////                .informacaoNutricional(produto.getInformacaoNutricional())
+//                .imagem(produto.getImagem())
+//                .disponivel(produto.getDisponivel())
+//                .isComposto(produto.getIsComposto())
+////                .destaque(produto.getDestaque())
+//                .categoriaId(produto.getCategoria() != null ? produto.getCategoria().getId() : null)
+//                .categoriaNome(produto.getCategoria() != null ? produto.getCategoria().getDescricao() : null)
+//                .ivaId(produto.getIva() != null ? produto.getIva().getId() : null)
+//                .ivaTaxa(produto.getIva() != null ? produto.getIva().getTaxa() : null)
+//                .itensComposto(produto.getIsComposto() && produto.getItensComposto() != null ?
+//                        produto.getItensComposto().stream()
+//                                .map(this::toCompostoItemDTO)
+//                                .collect(Collectors.toList()) : null)
+//                .build();
+//    }
+
+    private CategoriaRestauranteDTO toCategoriaRestauranteDTO(CategoriaProduto categoria) {
+        return CategoriaRestauranteDTO.builder()
+                .id(categoria.getId())
+                .codigo(categoria.getCodigo())
+                .descricao(categoria.getDescricao())
+                .visivelRestaurante(categoria.getVisivelRestaurante())
+                .totalProdutos(categoria.getProdutos() != null ?
+                        categoria.getProdutos().stream()
+                                .filter(p -> p.getAtivo() && p.getDisponivel())
+                                .count() : 0L)
+                .produtos(categoria.getProdutos() != null ?
+                        categoria.getProdutos().stream()
+                                .filter(p -> p.getAtivo() && p.getDisponivel())
+                                .map(this::toRestauranteDTO)
+                                .collect(Collectors.toList()) : null)
+                .build();
+    }
+
+    // ==================== MÉTODOS DE GESTÃO DE DISPONIBILIDADE ====================
+
+    @Transactional
+    public Produto toggleDisponibilidade(Long id) {
+        Produto produto = findByIdOrThrow(id);
+        produto.setDisponivel(!produto.getDisponivel());
+        Produto updated = produtoRepository.save(produto);
+        log.info("Produto {} disponibilidade alterada para: {}", updated.getNome(), updated.getDisponivel());
+        return updated;
+    }
+
+    // ==================== MÉTODOS DE CONVERSÃO PARA DTO ====================
+
+    public ProdutoCompostoDTO toCompostoDTO(Produto produto) {
+        return ProdutoCompostoDTO.builder()
+                .id(produto.getId())
+                .codigo(produto.getCodigo())
+                .nome(produto.getNome())
+                .descricao(produto.getDescricao())
+                .precoVenda(produto.getPrecoVenda())
+                .precoCusto(produto.getPrecoCusto())
+                .ativo(produto.getAtivo())
+                .disponivel(produto.getDisponivel())
+                .isComposto(produto.getIsComposto())
+                .tempoPreparo(produto.getTempoPreparo())
+                .ingredientes(produto.getIngredientes())
+                .imagem(produto.getImagem())
+                .destaque(produto.getDestaque())
+                .categoriaId(produto.getCategoria() != null ? produto.getCategoria().getId() : null)
+                .categoriaNome(produto.getCategoria() != null ? produto.getCategoria().getDescricao() : null)
+                .ivaId(produto.getIva() != null ? produto.getIva().getId() : null)
+                .ivaTaxa(produto.getIva() != null ? produto.getIva().getTaxa() : null)
+                .itensComposto(produto.getItensComposto() != null ?
+                        produto.getItensComposto().stream()
+                                .map(this::toCompostoItemDTO)
+                                .collect(Collectors.toList()) : new ArrayList<>())
+                .build();
+    }
+
+    private ProdutoCompostoItemDTO toCompostoItemDTO(ProdutoCompostoItem item) {
+        return ProdutoCompostoItemDTO.builder()
+                .id(item.getId())
+                .produtoFilhoId(item.getProdutoFilho() != null ? item.getProdutoFilho().getId() : null)
+                .produtoFilhoNome(item.getProdutoFilho() != null ? item.getProdutoFilho().getNome() : null)
+                .produtoFilhoCodigo(item.getProdutoFilho() != null ? item.getProdutoFilho().getCodigo() : null)
+                .produtoFilhoPrecoVenda(item.getProdutoFilho() != null ? item.getProdutoFilho().getPrecoVenda() : null)
+                .quantidade(item.getQuantidade())
+                .precoAdicional(item.getPrecoAdicional())
+                .obrigatorio(item.getObrigatorio())
+                .build();
+    }
+
+    private ProdutoRestauranteDTO toRestauranteDTO(Produto produto) {
+        return ProdutoRestauranteDTO.builder()
+                .id(produto.getId())
+                .codigo(produto.getCodigo())
+                .nome(produto.getNome())
+                .descricao(produto.getDescricao())
+                .precoVenda(produto.getPrecoVenda())
+                .tempoPreparo(produto.getTempoPreparo())
+                .ingredientes(produto.getIngredientes())
+                .imagem(produto.getImagem())
+                .disponivel(produto.getDisponivel())
+                .isComposto(produto.getIsComposto())
+                .categoriaId(produto.getCategoria() != null ? produto.getCategoria().getId() : null)
+                .categoriaNome(produto.getCategoria() != null ? produto.getCategoria().getDescricao() : null)
+                .ivaId(produto.getIva() != null ? produto.getIva().getId() : null)
+                .ivaTaxa(produto.getIva() != null ? produto.getIva().getTaxa() : null)
+                .itensComposto(produto.getItensComposto() != null && produto.getIsComposto() ?
+                        produto.getItensComposto().stream()
+                                .map(this::toCompostoItemDTO)
+                                .collect(Collectors.toList()) : new ArrayList<>())
+                .build();
+    }
+
+    // ==================== MÉTODOS AUXILIARES ====================
+
+    private User getAuthenticatedUser() {
+        try {
+            UserPrincipal principal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+            return userRepository.findById(principal.getId())
+                    .orElseThrow(() -> new EntityNotFoundException("User not found"));
+        } catch (Exception e) {
+            throw new BusinessException("User not authenticated");
+        }
+    }
+
+    private Long getCurrentEmpresaId() {
+        return getAuthenticatedUser().getEmpresa().getId();
+    }
+
+    @Transactional
+    public Produto ativarProduto(Long id) {
+        Produto produto = findByIdOrThrow(id);
+        produto.setAtivo(true);
+        return produtoRepository.save(produto);
+    }
+
+    @Transactional
+    public Produto desativarProduto(Long id) {
+        Produto produto = findByIdOrThrow(id);
+        produto.setAtivo(false);
+        return produtoRepository.save(produto);
+    }
+
+    @Transactional
+    public Produto atualizarPrecoVenda(Long id, BigDecimal novoPreco) {
+        Produto produto = findByIdOrThrow(id);
+        validatePrecoVenda(novoPreco);
+        produto.setPrecoVenda(novoPreco);
+        return produtoRepository.save(produto);
+    }
+
+    @Transactional
+    public Produto atualizarPrecoCusto(Long id, BigDecimal novoPreco) {
+        Produto produto = findByIdOrThrow(id);
+        validatePrecoCusto(novoPreco);
+        produto.setPrecoCusto(novoPreco);
+        return produtoRepository.save(produto);
     }
 
     public List<Produto> findActiveByEmpresaIdOrderByNome(Long empresaId) {
@@ -188,12 +610,8 @@ public class ProdutoService extends BaseServiceImpl<Produto, Long, ProdutoReposi
         return produtoRepository.countActiveByEmpresaId(empresaId);
     }
 
-    private Long getCurrentEmpresaId() {
-        return getAuthenticatedUser().getEmpresa().getId();
+    public List<Produto> findProdutosByPriceRange(BigDecimal minPrice, BigDecimal maxPrice) {
+        return produtoRepository.findProdutosByPriceRange(minPrice, maxPrice);
     }
 
-    private User getAuthenticatedUser() {
-        UserPrincipal principal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        return userRepository.findById(principal.getId()).get();
-    }
 }

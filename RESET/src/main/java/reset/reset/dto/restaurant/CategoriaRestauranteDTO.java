@@ -1,23 +1,22 @@
-package reset.reset.dto.product;
+package reset.reset.dto.restaurant;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import reset.reset.dto.product.ProdutoRestauranteDTO;
+
+import java.util.List;
 
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class CategoriaProdutoResumoDTO {
+public class CategoriaRestauranteDTO {
     private Long id;
     private String codigo;
     private String descricao;
-    private Boolean ativo;
     private Boolean visivelRestaurante;
-    private Boolean visivelPos;
-    private Boolean visivelFarmacia;
-    private Boolean visivelWeb;
-    private Boolean visivelPdv;
     private Long totalProdutos;
+    private List<ProdutoRestauranteDTO> produtos;
 }

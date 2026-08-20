@@ -5,6 +5,7 @@ import jakarta.validation.constraints.Positive;
 import lombok.Data;
 import reset.reset.Models.product.Desconto;
 import reset.reset.Models.product.Iva;
+import reset.reset.Models.product.Produto;
 import reset.reset.Models.restaurant.Combo;
 import reset.reset.Models.restaurant.ItemCardapio;
 import reset.reset.Models.restaurant.ItemPedido;
@@ -19,7 +20,7 @@ public class PedidoItemRequest {
 
     @NotNull(message = "Quantidade é obrigatória")
     @Positive(message = "Quantidade deve ser maior que zero")
-    private Integer quantidade = 1;
+    private BigDecimal quantidade = BigDecimal.ONE;
 
     private Long descontoId;
     private Long ivaId;
@@ -33,9 +34,9 @@ public class PedidoItemRequest {
         item.setObservacao(this.observacao);
 
         if (this.itemId != null) {
-            ItemCardapio itemCardapio = new ItemCardapio();
+            Produto itemCardapio = new Produto();
             itemCardapio.setId(this.itemId);
-            item.setItem(itemCardapio);
+            item.setProduto(itemCardapio);
         }
 
         if (this.comboId != null) {

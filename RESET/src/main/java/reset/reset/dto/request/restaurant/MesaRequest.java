@@ -18,8 +18,8 @@ public class MesaRequest {
 
     private String localizacao;
 
-    @NotNull(message = "Empresa ID é obrigatório")
-    private Long empresaId;
+//    @NotNull(message = "Empresa ID é obrigatório")
+//    private Long empresaId;
 
     public Mesa toEntity() {
         Mesa mesa = new Mesa();
@@ -28,7 +28,7 @@ public class MesaRequest {
         mesa.setLocalizacao(this.localizacao);
 
         Empresa empresa = new Empresa();
-        empresa.setId(this.empresaId);
+//        empresa.setId(this.empresaId);
         mesa.setEmpresa(empresa);
 
         return mesa;

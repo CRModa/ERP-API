@@ -26,5 +26,7 @@ public class ProdutoRestauranteDTO {
     private Long categoriaId;
     private String categoriaNome;
     private List<ProdutoCompostoItemDTO> itensComposto;
+    private Long ivaId;
+    private BigDecimal ivaTaxa;
 }
 

@@ -15,7 +15,7 @@ public class AdicionarItemPedidoRequest {
 
     @NotNull(message = "Quantidade é obrigatória")
     @Positive(message = "Quantidade deve ser maior que zero")
-    private Integer quantidade = 1;
+    private BigDecimal quantidade = BigDecimal.ONE;
 
     private Long descontoId;
     private BigDecimal descontoValor;

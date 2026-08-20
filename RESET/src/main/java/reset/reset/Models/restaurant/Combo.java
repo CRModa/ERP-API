@@ -9,6 +9,7 @@ import reset.reset.Models.core.Empresa;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 @Entity
@@ -45,6 +46,6 @@ public class Combo {
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
-    @OneToMany(mappedBy = "combo", cascade = CascadeType.ALL)
-    private List<ItemCombo> itens;
+    @OneToMany(mappedBy = "combo", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private List<ItemCombo> itens = new ArrayList<>();
 }

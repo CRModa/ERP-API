@@ -6,6 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
 import reset.reset.Models.core.Empresa;
+import reset.reset.Models.restaurant.ItemPedido;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -50,11 +51,11 @@ public class Produto {
     @Column(name = "preco_custo", precision = 15, scale = 2)
     private BigDecimal precoCusto;
 
-//    @Column(name = "tempo_preparo")
-//    private Integer tempoPreparo; // em minutos
+    @Column(name = "tempo_preparo")
+    private Integer tempoPreparo; // em minutos
 
-//    @Column(name = "ingredientes", columnDefinition = "TEXT")
-//    private String ingredientes;
+    @Column(name = "ingredientes", columnDefinition = "TEXT")
+    private String ingredientes;
 
     @Column(name = "imagem", columnDefinition = "TEXT")
     private String imagem;
@@ -80,4 +81,7 @@ public class Produto {
 
     @OneToMany(mappedBy = "produtoFilho", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private Set<ProdutoCompostoItem> itensPai = new HashSet<>();
+
+    @OneToMany(mappedBy = "produto", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private Set<ItemPedido> itensPedido = new HashSet<>();
 }

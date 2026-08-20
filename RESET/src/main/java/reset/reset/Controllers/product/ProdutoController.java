@@ -18,7 +18,7 @@ import reset.reset.Models.product.Produto;
 import reset.reset.Services.product.ProdutoService;
 import reset.reset.dto.filter.ProdutoFilter;
 import reset.reset.dto.projection.ProdutoResumo;
-import reset.reset.dto.request.ProdutoRequest;
+import reset.reset.dto.request.product.ProdutoRequest;
 
 import java.math.BigDecimal;
 

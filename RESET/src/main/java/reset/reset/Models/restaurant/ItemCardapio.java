@@ -7,9 +7,11 @@ import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
 import reset.reset.Models.core.Empresa;
 import reset.reset.Models.product.Iva;
+import reset.reset.Models.product.Produto;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 @Entity
@@ -35,6 +37,10 @@ public class ItemCardapio {
     @JoinColumn(name = "iva_id")
     private Iva iva;
 
+    @ManyToOne
+    @JoinColumn(name = "produto_id")
+    private Produto produto;
+
     @Column(name = "codigo", length = 50)
     private String codigo;
 
@@ -51,7 +57,7 @@ public class ItemCardapio {
     private BigDecimal custo;
 
     @Column(name = "tempo_preparo")
-    private Integer tempoPreparo; // em minutos
+    private Integer tempoPreparo;
 
     @Column(name = "ingredientes", columnDefinition = "TEXT")
     private String ingredientes;
@@ -75,9 +81,9 @@ public class ItemCardapio {
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
-    @OneToMany(mappedBy = "item", cascade = CascadeType.ALL)
-    private List<ItemPedido> itensPedido;
+    @OneToMany(mappedBy = "item", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private List<ItemPedido> itensPedido = new ArrayList<>();
 
-    @OneToMany(mappedBy = "item", cascade = CascadeType.ALL)
-    private List<ItemCombo> itensCombo;
+    @OneToMany(mappedBy = "item", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private List<ItemCombo> itensCombo = new ArrayList<>();
 }

@@ -4,14 +4,18 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import reset.reset.Exceptions.BusinessException;
 import reset.reset.Exceptions.DuplicateEntityException;
 import reset.reset.Exceptions.EntityNotFoundException;
+import reset.reset.Models.auth.User;
 import reset.reset.Models.restaurant.Mesa;
+import reset.reset.Repositories.auth.UserRepository;
 import reset.reset.Repositories.core.EmpresaRepository;
 import reset.reset.Repositories.restaurant.MesaRepository;
+import reset.reset.Security.UserPrincipal;
 import reset.reset.Services.base.BaseServiceImpl;
 
 import java.util.List;
@@ -23,6 +27,8 @@ public class MesaService extends BaseServiceImpl<Mesa, Long, MesaRepository> {
     private final MesaRepository mesaRepository;
     @Autowired
     private EmpresaRepository empresaRepository;
+    @Autowired
+    private UserRepository userRepository;
 
     public MesaService(MesaRepository repository) {
         super(repository);
@@ -31,7 +37,8 @@ public class MesaService extends BaseServiceImpl<Mesa, Long, MesaRepository> {
 
     @Override
     protected void validateBeforeSave(Mesa mesa) {
-        validateEmpresaExists(mesa.getEmpresa().getId());
+//        validateEmpresaExists(mesa.getEmpresa().getId());
+        mesa.setEmpresa(getAuthenticatedUser().getEmpresa());
         validateNumeroUniqueness(mesa.getEmpresa().getId(), mesa.getNumero(), null);
         validateCapacidade(mesa.getCapacidade());
     }
@@ -116,5 +123,10 @@ public class MesaService extends BaseServiceImpl<Mesa, Long, MesaRepository> {
 
     public Long countActiveByEmpresaId(Long empresaId) {
         return mesaRepository.countActiveByEmpresaId(empresaId);
+    }
+
+    private User getAuthenticatedUser() {
+        UserPrincipal principal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        return userRepository.findById(principal.getId()).get();
     }
 }

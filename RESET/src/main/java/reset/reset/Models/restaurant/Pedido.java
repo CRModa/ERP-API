@@ -12,6 +12,7 @@ import reset.reset.Models.customer.Cliente;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 @Entity
@@ -81,7 +82,7 @@ public class Pedido {
     private LocalDateTime dataFechamento;
 
     @Column(name = "tempo_espera")
-    private Integer tempoEspera; // em minutos
+    private Integer tempoEspera;
 
     @Column(name = "ativo", columnDefinition = "BOOLEAN DEFAULT TRUE")
     private Boolean ativo = true;
@@ -95,7 +96,7 @@ public class Pedido {
     private LocalDateTime updatedAt;
 
     @OneToMany(mappedBy = "pedido", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    private List<ItemPedido> itens;
+    private List<ItemPedido> itens = new ArrayList<>();
 
     public enum TipoPedido {
         MESA,

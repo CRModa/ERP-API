@@ -19,4 +19,5 @@ public class ProdutoCompostoItemDTO {
     private BigDecimal quantidade;
     private BigDecimal precoAdicional;
     private Boolean obrigatorio;
+    private BigDecimal produtoFilhoPrecoVenda;
 }

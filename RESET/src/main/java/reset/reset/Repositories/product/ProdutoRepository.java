@@ -68,5 +68,46 @@ public interface ProdutoRepository extends BaseRepository<Produto, Long> {
         }
         return findAll(spec, filter.toPageable());
     }
+
+    // ==================== MÉTODOS PARA RESTAURANTE ====================
+
+    @Query("SELECT DISTINCT p FROM Produto p " +
+            "JOIN p.categoria c " +
+            "WHERE p.empresa.id = :empresaId " +
+            "AND p.ativo = true " +
+            "AND p.disponivel = true " +
+            "AND c.visivelRestaurante = true")
+    List<Produto> findByEmpresaIdAndCategoriaVisivelRestaurante(@Param("empresaId") Long empresaId);
+
+    @Query("SELECT p FROM Produto p " +
+            "WHERE p.categoria.id = :categoriaId " +
+            "AND p.ativo = true " +
+            "AND p.disponivel = true")
+    List<Produto> findByCategoriaIdAndDisponivelTrue(@Param("categoriaId") Long categoriaId);
+
+    @Query("SELECT p FROM Produto p " +
+            "WHERE p.empresa.id = :empresaId " +
+            "AND p.ativo = true " +
+            "AND p.disponivel = true " +
+            "AND p.destaque = true")
+    List<Produto> findDestaquesByEmpresaId(@Param("empresaId") Long empresaId);
+
+    @Query("SELECT p FROM Produto p " +
+            "WHERE p.empresa.id = :empresaId " +
+            "AND p.ativo = true " +
+            "AND p.isComposto = true")
+    List<Produto> findCompostosByEmpresaId(@Param("empresaId") Long empresaId);
+
+    @Query("SELECT p FROM Produto p " +
+            "WHERE p.empresa.id = :empresaId " +
+            "AND p.isComposto = false")
+    List<Produto> findSimplesByEmpresaId(@Param("empresaId") Long empresaId);
+
+    @Query("SELECT p FROM Produto p " +
+            "WHERE p.empresa.id = :empresaId " +
+            "AND p.ativo = true " +
+            "AND p.isComposto = true " +
+            "AND p.disponivel = true")
+    List<Produto> findCompostosDisponiveisByEmpresaId(@Param("empresaId") Long empresaId);
 }
 

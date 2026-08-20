@@ -8,6 +8,7 @@ import org.hibernate.annotations.CreationTimestamp;
 import reset.reset.Models.core.Empresa;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 @Entity
@@ -44,6 +45,6 @@ public class CategoriaCardapio {
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
-    @OneToMany(mappedBy = "categoria", cascade = CascadeType.ALL)
-    private List<ItemCardapio> itens;
+    @OneToMany(mappedBy = "categoria", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private List<ItemCardapio> itens = new ArrayList<>();
 }

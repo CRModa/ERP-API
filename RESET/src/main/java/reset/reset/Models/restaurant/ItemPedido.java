@@ -6,6 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import reset.reset.Models.product.Desconto;
 import reset.reset.Models.product.Iva;
+import reset.reset.Models.product.Produto;
 
 import java.math.BigDecimal;
 
@@ -29,6 +30,10 @@ public class ItemPedido {
     private ItemCardapio item;
 
     @ManyToOne
+    @JoinColumn(name = "produto_id")
+    private Produto produto;
+
+    @ManyToOne
     @JoinColumn(name = "combo_id")
     private Combo combo;
 
@@ -41,7 +46,7 @@ public class ItemPedido {
     private Iva iva;
 
     @Column(name = "quantidade", nullable = false)
-    private Integer quantidade = 1;
+    private BigDecimal quantidade = BigDecimal.ONE;
 
     @Column(name = "preco_unitario", nullable = false, precision = 15, scale = 2)
     private BigDecimal precoUnitario;

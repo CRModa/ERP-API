@@ -34,4 +34,7 @@ public class ProdutoCompostoItem {
 
     @Column(name = "obrigatorio", columnDefinition = "BOOLEAN DEFAULT TRUE")
     private Boolean obrigatorio = true;
+
+    @Column(columnDefinition = "BOOLEAN DEFAULT TRUE")
+    private Boolean ativo = true;
 }

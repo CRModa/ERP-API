@@ -10,12 +10,15 @@ import reset.reset.Exceptions.BusinessException;
 import reset.reset.Exceptions.EntityNotFoundException;
 import reset.reset.Models.auth.User;
 import reset.reset.Models.customer.Cliente;
+import reset.reset.Models.product.Produto;
 import reset.reset.Models.restaurant.*;
 import reset.reset.Repositories.auth.UserRepository;
 import reset.reset.Repositories.core.EmpresaRepository;
 import reset.reset.Repositories.customer.ClienteRepository;
+import reset.reset.Repositories.product.ProdutoRepository;
 import reset.reset.Repositories.restaurant.*;
 import reset.reset.Services.base.BaseServiceImpl;
+import reset.reset.Services.stock.StockService;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -27,20 +30,30 @@ import java.util.List;
 public class PedidoService extends BaseServiceImpl<Pedido, Long, PedidoRepository> {
 
     private final PedidoRepository pedidoRepository;
+
     @Autowired
     private MesaRepository mesaRepository;
+
     @Autowired
-    private ItemCardapioRepository itemCardapioRepository;
+    private ProdutoRepository produtoRepository;
+
     @Autowired
     private ComboRepository comboRepository;
+
     @Autowired
     private UserRepository utilizadorRepository;
+
     @Autowired
     private ClienteRepository clienteRepository;
+
     @Autowired
     private EmpresaRepository empresaRepository;
+
     @Autowired
     private PedidoLogRepository pedidoLogRepository;
+
+    @Autowired
+    private StockService stockService;
 
     public PedidoService(PedidoRepository repository) {
         super(repository);
@@ -105,19 +118,28 @@ public class PedidoService extends BaseServiceImpl<Pedido, Long, PedidoRepositor
         }
 
         for (ItemPedido item : itens) {
-            if (item.getQuantidade() == null || item.getQuantidade() <= 0) {
+            if (item.getQuantidade() == null || item.getQuantidade().compareTo(BigDecimal.ZERO) <= 0) {
                 throw new BusinessException("Quantidade deve ser maior que zero");
             }
 
-            if (item.getItem() != null && item.getItem().getId() != null) {
-                ItemCardapio itemCardapio = itemCardapioRepository.findById(item.getItem().getId())
-                        .orElseThrow(() -> new EntityNotFoundException("Item do cardápio não encontrado"));
+            if (item.getProduto() != null && item.getProduto().getId() != null) {
+                Produto produto = produtoRepository.findById(item.getProduto().getId())
+                        .orElseThrow(() -> new EntityNotFoundException("Produto não encontrado"));
 
-                if (!itemCardapio.getDisponivel()) {
-                    throw new BusinessException("Item " + itemCardapio.getNome() + " não está disponível");
+                if (!produto.getDisponivel()) {
+                    throw new BusinessException("Produto " + produto.getNome() + " não está disponível");
                 }
 
-                item.setPrecoUnitario(itemCardapio.getPreco());
+                item.setPrecoUnitario(produto.getPrecoVenda());
+
+                // Verificar stock para produtos não compostos
+                if (!produto.getIsComposto()) {
+                    BigDecimal stockDisponivel = stockService.getQuantidadeTotalPorProduto(produto.getId());
+                    if (stockDisponivel.compareTo(item.getQuantidade()) < 0) {
+                        throw new BusinessException("Stock insuficiente para " + produto.getNome() +
+                                " (disponível: " + stockDisponivel + ")");
+                    }
+                }
             }
 
             if (item.getCombo() != null && item.getCombo().getId() != null) {
@@ -137,8 +159,8 @@ public class PedidoService extends BaseServiceImpl<Pedido, Long, PedidoRepositor
     }
 
     private void validateTipoPedidoItem(ItemPedido item) {
-        if (item.getItem() == null && item.getCombo() == null) {
-            throw new BusinessException("Item deve ter um item do cardápio ou um combo");
+        if (item.getProduto() == null && item.getCombo() == null) {
+            throw new BusinessException("Item deve ter um produto ou um combo");
         }
     }
 
@@ -189,7 +211,7 @@ public class PedidoService extends BaseServiceImpl<Pedido, Long, PedidoRepositor
 
         for (ItemPedido item : pedido.getItens()) {
             BigDecimal preco = item.getPrecoUnitario() != null ? item.getPrecoUnitario() : BigDecimal.ZERO;
-            BigDecimal quantidade = BigDecimal.valueOf(item.getQuantidade());
+            BigDecimal quantidade = item.getQuantidade();
             BigDecimal subtotalItem = preco.multiply(quantidade);
 
             // Aplicar desconto se houver
@@ -224,9 +246,15 @@ public class PedidoService extends BaseServiceImpl<Pedido, Long, PedidoRepositor
 
         if (novoStatus == Pedido.StatusPedido.PRONTO) {
             pedido.setDataEntrega(LocalDateTime.now());
+
+            // Calcular tempo de espera
+            if (pedido.getDataPedido() != null) {
+                long minutos = java.time.Duration.between(pedido.getDataPedido(), LocalDateTime.now()).toMinutes();
+                pedido.setTempoEspera((int) minutos);
+            }
         }
 
-        if (novoStatus == Pedido.StatusPedido.FECHADO) {
+        if (novoStatus == Pedido.StatusPedido.FECHADO || novoStatus == Pedido.StatusPedido.ENTREGUE) {
             pedido.setDataFechamento(LocalDateTime.now());
             // Liberar mesa
             if (pedido.getMesa() != null) {
@@ -254,10 +282,10 @@ public class PedidoService extends BaseServiceImpl<Pedido, Long, PedidoRepositor
         }
 
         // Validar item
-        if (novoItem.getItem() != null && novoItem.getItem().getId() != null) {
-            ItemCardapio item = itemCardapioRepository.findById(novoItem.getItem().getId())
-                    .orElseThrow(() -> new EntityNotFoundException("Item do cardápio não encontrado"));
-            novoItem.setPrecoUnitario(item.getPreco());
+        if (novoItem.getProduto() != null && novoItem.getProduto().getId() != null) {
+            Produto produto = produtoRepository.findById(novoItem.getProduto().getId())
+                    .orElseThrow(() -> new EntityNotFoundException("Produto não encontrado"));
+            novoItem.setPrecoUnitario(produto.getPrecoVenda());
         }
 
         novoItem.setPedido(pedido);
@@ -265,7 +293,7 @@ public class PedidoService extends BaseServiceImpl<Pedido, Long, PedidoRepositor
 
         // Calcular subtotal do item
         BigDecimal preco = novoItem.getPrecoUnitario() != null ? novoItem.getPrecoUnitario() : BigDecimal.ZERO;
-        BigDecimal quantidade = BigDecimal.valueOf(novoItem.getQuantidade());
+        BigDecimal quantidade = novoItem.getQuantidade();
         BigDecimal subtotalItem = preco.multiply(quantidade);
 
         if (novoItem.getDescontoValor() != null) {
@@ -279,7 +307,7 @@ public class PedidoService extends BaseServiceImpl<Pedido, Long, PedidoRepositor
         calcularTotaisPedido(pedido);
 
         Pedido updated = pedidoRepository.save(pedido);
-        registrarLog(updated, "ADICAO_ITEM", null, "Item adicionado: " + novoItem.getItem().getNome());
+        registrarLog(updated, "ADICAO_ITEM", null, "Item adicionado: " + novoItem.getProduto().getNome());
 
         return updated;
     }
@@ -332,6 +360,6 @@ public class PedidoService extends BaseServiceImpl<Pedido, Long, PedidoRepositor
     }
 
     public Long countByEmpresaAndPeriodo(Long empresaId, LocalDateTime inicio, LocalDateTime fim) {
-        return  pedidoRepository.countByEmpresaAndPeriodo(empresaId, inicio, fim);
+        return pedidoRepository.countByEmpresaAndPeriodo(empresaId, inicio, fim);
     }
 }

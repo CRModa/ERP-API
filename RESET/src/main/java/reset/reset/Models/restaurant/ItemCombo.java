@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import reset.reset.Models.product.Produto;
 
 import java.math.BigDecimal;
 
@@ -25,6 +26,10 @@ public class ItemCombo {
     @ManyToOne
     @JoinColumn(name = "item_id", nullable = false)
     private ItemCardapio item;
+
+    @ManyToOne
+    @JoinColumn(name = "produto_id")
+    private Produto produto;
 
     @Column(name = "quantidade", nullable = false)
     private Integer quantidade = 1;

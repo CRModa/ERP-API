@@ -10,6 +10,7 @@ import reset.reset.Exceptions.BusinessException;
 import reset.reset.Exceptions.EntityNotFoundException;
 import reset.reset.Exceptions.InsufficientStockException;
 import reset.reset.Models.product.Produto;
+import reset.reset.Models.product.ProdutoCompostoItem;
 import reset.reset.Models.stock.Armazem;
 import reset.reset.Models.stock.MovimentoStock;
 import reset.reset.Models.stock.Stock;
@@ -20,6 +21,7 @@ import reset.reset.Repositories.stock.StockRepository;
 import reset.reset.Services.base.BaseServiceImpl;
 import reset.reset.dto.filter.StockFilter;
 import reset.reset.dto.projection.StockResumo;
+import reset.reset.dto.request.restaurant.PedidoItemRequest;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -31,10 +33,13 @@ import java.util.Optional;
 public class StockService extends BaseServiceImpl<Stock, Long, StockRepository> {
 
     private final StockRepository stockRepository;
+
     @Autowired
     private ProdutoRepository produtoRepository;
+
     @Autowired
     private ArmazemRepository armazemRepository;
+
     @Autowired
     private MovimentoStockRepository movimentoStockRepository;
 
@@ -68,6 +73,8 @@ public class StockService extends BaseServiceImpl<Stock, Long, StockRepository> 
         }
     }
 
+    // ==================== OPERAÇÕES DE STOCK ====================
+
     @Transactional
     public Stock adicionarStock(Long produtoId, Long armazemId, BigDecimal quantidade, String referencia) {
         Produto produto = produtoRepository.findById(produtoId)
@@ -77,6 +84,11 @@ public class StockService extends BaseServiceImpl<Stock, Long, StockRepository> 
 
         if (quantidade.compareTo(BigDecimal.ZERO) <= 0) {
             throw new BusinessException("Quantity must be greater than zero");
+        }
+
+        // Verifica se o produto é composto
+        if (produto.getIsComposto() != null && produto.getIsComposto()) {
+            throw new BusinessException("Cannot add stock directly to a composed product. Add stock to its components.");
         }
 
         Optional<Stock> stockOpt = stockRepository.findByProdutoIdAndArmazemId(produtoId, armazemId);
@@ -111,6 +123,14 @@ public class StockService extends BaseServiceImpl<Stock, Long, StockRepository> 
 
     @Transactional
     public Stock removerStock(Long produtoId, Long armazemId, BigDecimal quantidade, String referencia) {
+        Produto produto = produtoRepository.findById(produtoId)
+                .orElseThrow(() -> new EntityNotFoundException("Product not found"));
+
+        // Verifica se o produto é composto
+        if (produto.getIsComposto() != null && produto.getIsComposto()) {
+            throw new BusinessException("Cannot remove stock directly from a composed product. Remove from its components.");
+        }
+
         Stock stock = stockRepository.findByProdutoIdAndArmazemId(produtoId, armazemId)
                 .orElseThrow(() -> new EntityNotFoundException("Stock not found for product and warehouse"));
 
@@ -173,12 +193,21 @@ public class StockService extends BaseServiceImpl<Stock, Long, StockRepository> 
     @Transactional
     public Stock transferirStock(Long produtoId, Long origemArmazemId, Long destinoArmazemId,
                                  BigDecimal quantidade, String referencia) {
+        Produto produto = produtoRepository.findById(produtoId)
+                .orElseThrow(() -> new EntityNotFoundException("Product not found"));
+
+        if (produto.getIsComposto() != null && produto.getIsComposto()) {
+            throw new BusinessException("Cannot transfer stock of a composed product. Transfer its components.");
+        }
+
         // Remover do armazém de origem
         removerStock(produtoId, origemArmazemId, quantidade, "Transferência: " + referencia);
 
         // Adicionar ao armazém de destino
         return adicionarStock(produtoId, destinoArmazemId, quantidade, "Transferência: " + referencia);
     }
+
+    // ==================== CONSULTAS DE STOCK ====================
 
     public Stock getStockByProdutoAndArmazem(Long produtoId, Long armazemId) {
         return stockRepository.findByProdutoIdAndArmazemId(produtoId, armazemId)
@@ -190,6 +219,28 @@ public class StockService extends BaseServiceImpl<Stock, Long, StockRepository> 
         return stocks.stream()
                 .map(Stock::getQuantidadeAtual)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    public BigDecimal getQuantidadeTotalPorProdutoComposto(Long produtoCompostoId) {
+        Produto produto = produtoRepository.findById(produtoCompostoId)
+                .orElseThrow(() -> new EntityNotFoundException("Product not found"));
+
+        if (!produto.getIsComposto()) {
+            throw new BusinessException("Product is not a composed product");
+        }
+
+        // O stock de um produto composto é baseado no item com menor disponibilidade
+        BigDecimal menorStock = null;
+        for (ProdutoCompostoItem item : produto.getItensComposto()) {
+            BigDecimal stockDisponivel = getQuantidadeTotalPorProduto(item.getProdutoFilho().getId());
+            BigDecimal quantidadeNecessaria = item.getQuantidade();
+            BigDecimal quantidadePossivel = stockDisponivel.divide(quantidadeNecessaria, 2, BigDecimal.ROUND_DOWN);
+
+            if (menorStock == null || quantidadePossivel.compareTo(menorStock) < 0) {
+                menorStock = quantidadePossivel;
+            }
+        }
+        return menorStock != null ? menorStock : BigDecimal.ZERO;
     }
 
     public Page<Stock> filter(StockFilter filter) {
@@ -210,5 +261,136 @@ public class StockService extends BaseServiceImpl<Stock, Long, StockRepository> 
 
     public Page<StockResumo> findStockResumoByEmpresaId(Long empresaId, Pageable pageable) {
         return stockRepository.findStockResumoByEmpresaId(empresaId, pageable);
+    }
+
+    // ==================== CONTROLE DE STOCK PARA PEDIDOS ====================
+
+    public boolean verificarStockParaPedido(List<PedidoItemRequest> itens) {
+        for (PedidoItemRequest item : itens) {
+            Produto produto = produtoRepository.findById(item.getItemId())
+                    .orElseThrow(() -> new EntityNotFoundException("Produto não encontrado"));
+
+            if (produto.getIsComposto() != null && produto.getIsComposto()) {
+                // Para produtos compostos, verificar cada item filho
+                for (ProdutoCompostoItem composto : produto.getItensComposto()) {
+                    BigDecimal quantidadeNecessaria = composto.getQuantidade().multiply(item.getQuantidade());
+                    BigDecimal stockDisponivel = getQuantidadeTotalPorProduto(composto.getProdutoFilho().getId());
+
+                    if (stockDisponivel.compareTo(quantidadeNecessaria) < 0) {
+                        throw new InsufficientStockException(
+                                "Stock insuficiente para " + composto.getProdutoFilho().getNome() +
+                                        " (necessário: " + quantidadeNecessaria + ", disponível: " + stockDisponivel + ")"
+                        );
+                    }
+                }
+            } else {
+                // Produto simples
+                BigDecimal stockDisponivel = getQuantidadeTotalPorProduto(produto.getId());
+                if (stockDisponivel.compareTo(item.getQuantidade()) < 0) {
+                    throw new InsufficientStockException(
+                            "Stock insuficiente para " + produto.getNome() +
+                                    " (necessário: " + item.getQuantidade() + ", disponível: " + stockDisponivel + ")"
+                    );
+                }
+            }
+        }
+        return true;
+    }
+
+    @Transactional
+    public void baixarStockParaPedido(List<PedidoItemRequest> itens, Long armazemId, String referencia) {
+        if (itens == null || itens.isEmpty()) {
+            throw new BusinessException("Lista de itens vazia");
+        }
+
+        // Verificar se o armazém existe
+        if (!armazemRepository.existsById(armazemId)) {
+            throw new EntityNotFoundException("Armazém não encontrado com id: " + armazemId);
+        }
+
+        for (PedidoItemRequest item : itens) {
+            Produto produto = produtoRepository.findById(item.getItemId())
+                    .orElseThrow(() -> new EntityNotFoundException("Produto não encontrado: " + item.getItemId()));
+
+            if (produto.getIsComposto() != null && produto.getIsComposto()) {
+                // Para produtos compostos, baixar cada item filho
+                for (ProdutoCompostoItem composto : produto.getItensComposto()) {
+                    BigDecimal quantidadeBaixar = composto.getQuantidade().multiply(item.getQuantidade());
+                    removerStock(composto.getProdutoFilho().getId(), armazemId, quantidadeBaixar,
+                            "Pedido: " + referencia + " - " + produto.getNome());
+                }
+            } else {
+                // Produto simples
+                removerStock(produto.getId(), armazemId, item.getQuantidade(),
+                        "Pedido: " + referencia);
+            }
+        }
+
+        log.info("Stock baixado para pedido: {}", referencia);
+    }
+
+    public boolean verificarStockProduto(Long produtoId, BigDecimal quantidade) {
+        Produto produto = produtoRepository.findById(produtoId)
+                .orElseThrow(() -> new EntityNotFoundException("Produto não encontrado"));
+
+        if (produto.getIsComposto() != null && produto.getIsComposto()) {
+            BigDecimal stockDisponivel = getQuantidadeTotalPorProdutoComposto(produtoId);
+            return stockDisponivel.compareTo(quantidade) >= 0;
+        } else {
+            BigDecimal stockDisponivel = getQuantidadeTotalPorProduto(produtoId);
+            return stockDisponivel.compareTo(quantidade) >= 0;
+        }
+    }
+
+    public BigDecimal calcularCustoPedido(List<PedidoItemRequest> itens) {
+        BigDecimal custoTotal = BigDecimal.ZERO;
+
+        for (PedidoItemRequest item : itens) {
+            Produto produto = produtoRepository.findById(item.getItemId())
+                    .orElseThrow(() -> new EntityNotFoundException("Produto não encontrado"));
+
+            if (produto.getIsComposto() != null && produto.getIsComposto()) {
+                // Soma o custo de cada item filho
+                for (ProdutoCompostoItem composto : produto.getItensComposto()) {
+                    BigDecimal custoItem = composto.getProdutoFilho().getPrecoCusto()
+                            .multiply(composto.getQuantidade())
+                            .multiply(item.getQuantidade());
+                    custoTotal = custoTotal.add(custoItem);
+                }
+            } else {
+                custoTotal = custoTotal.add(
+                        produto.getPrecoCusto().multiply(item.getQuantidade())
+                );
+            }
+        }
+
+        return custoTotal;
+    }
+
+    public BigDecimal calcularValorPedido(List<PedidoItemRequest> itens) {
+        BigDecimal valorTotal = BigDecimal.ZERO;
+
+        for (PedidoItemRequest item : itens) {
+            Produto produto = produtoRepository.findById(item.getItemId())
+                    .orElseThrow(() -> new EntityNotFoundException("Produto não encontrado"));
+
+            if (produto.getIsComposto() != null && produto.getIsComposto()) {
+                // Valor do produto composto = preço base + soma dos adicionais
+                BigDecimal valorBase = produto.getPrecoVenda();
+                BigDecimal adicionais = BigDecimal.ZERO;
+                for (ProdutoCompostoItem composto : produto.getItensComposto()) {
+                    if (composto.getObrigatorio() || composto.getPrecoAdicional().compareTo(BigDecimal.ZERO) > 0) {
+                        adicionais = adicionais.add(composto.getPrecoAdicional());
+                    }
+                }
+                valorTotal = valorTotal.add(valorBase.add(adicionais).multiply(item.getQuantidade()));
+            } else {
+                valorTotal = valorTotal.add(
+                        produto.getPrecoVenda().multiply(item.getQuantidade())
+                );
+            }
+        }
+
+        return valorTotal;
     }
 }
