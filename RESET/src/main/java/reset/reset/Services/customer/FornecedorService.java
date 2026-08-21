@@ -51,7 +51,7 @@ public class FornecedorService extends BaseServiceImpl<Fornecedor, Long, Fornece
     @Override
     protected void validateBeforeUpdate(Long id, Fornecedor fornecedor) {
         Fornecedor existing = findByIdOrThrow(id);
-        validateEmpresaExists(fornecedor.getEmpresa().getId());
+//        validateEmpresaExists(fornecedor.getEmpresa().getId());
 
         if (fornecedor.getNuit() != null && !fornecedor.getNuit().isEmpty() &&
                 !existing.getNuit().equals(fornecedor.getNuit())) {
@@ -62,6 +62,7 @@ public class FornecedorService extends BaseServiceImpl<Fornecedor, Long, Fornece
                 !existing.getEmail().equals(fornecedor.getEmail())) {
             validateEmailUniqueness(fornecedor.getEmail(), id);
         }
+        fornecedor.setEmpresa(getAuthenticatedUser().getEmpresa());
     }
 
     private void validateEmpresaExists(Long empresaId) {
