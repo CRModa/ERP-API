@@ -5,6 +5,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -16,6 +17,7 @@ import reset.reset.Controllers.base.ApiResponse;
 import reset.reset.Controllers.base.BaseController;
 import reset.reset.Models.product.Produto;
 import reset.reset.Services.product.ProdutoService;
+import reset.reset.Services.stock.StockService;
 import reset.reset.dto.filter.ProdutoFilter;
 import reset.reset.dto.product.ProdutoCompostoDTO;
 import reset.reset.dto.product.ProdutoDTO;
@@ -37,6 +39,9 @@ import java.util.List;
 public class ProdutoController extends BaseController {
 
     private final ProdutoService produtoService;
+
+    @Autowired
+    private StockService stockService;
 
     // ==================== CRUD PRODUTO SIMPLES ====================
 
@@ -64,7 +69,9 @@ public class ProdutoController extends BaseController {
     @PreAuthorize("hasPermission('PRODUTO_READ')")
     public ResponseEntity<ApiResponse<ProdutoDTO>> findById(@PathVariable Long id) {
         Produto produto = produtoService.findByIdOrThrow(id);
-        return success(ProdutoDTO.fromEntity(produto));
+        ProdutoDTO dto = ProdutoDTO.fromEntity(produto);
+        dto.setQuantidadeEstoque(stockService.getQuantidadeTotalPorProduto(id));
+        return success(dto);
     }
 
     @GetMapping

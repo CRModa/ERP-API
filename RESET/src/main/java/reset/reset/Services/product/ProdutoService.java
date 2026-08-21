@@ -25,6 +25,7 @@ import reset.reset.Repositories.stock.ArmazemRepository;
 import reset.reset.Repositories.stock.StockRepository;
 import reset.reset.Security.UserPrincipal;
 import reset.reset.Services.base.BaseServiceImpl;
+import reset.reset.Services.stock.StockService;
 import reset.reset.dto.filter.ProdutoFilter;
 import reset.reset.dto.product.ProdutoCompostoDTO;
 import reset.reset.dto.product.ProdutoDTO;
@@ -69,6 +70,9 @@ public class ProdutoService extends BaseServiceImpl<Produto, Long, ProdutoReposi
 
     @Autowired
     private ArmazemRepository armazemRepository;
+
+    @Autowired
+    private StockService stockService;
 
     public ProdutoService(ProdutoRepository repository) {
         super(repository);
@@ -431,12 +435,14 @@ public class ProdutoService extends BaseServiceImpl<Produto, Long, ProdutoReposi
     // ==================== MÉTODOS DE CONVERSÃO ====================
 
     private ProdutoResumoDTO toProdutoResumoDTO(reset.reset.dto.projection.ProdutoResumo resumo) {
+        BigDecimal stock = stockService.getQuantidadeTotalPorProduto(resumo.getId());
         return ProdutoResumoDTO.builder()
                 .id(resumo.getId())
                 .codigo(resumo.getCodigo())
                 .nome(resumo.getNome())
                 .precoVenda(resumo.getPrecoVenda())
                 .precoCusto(resumo.getPrecoCusto())
+                .quantidadeEstoque(stock)
                 .categoriaNome(resumo.getCategoriaNome())
                 .ativo(true)
                 .disponivel(true)

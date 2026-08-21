@@ -5,11 +5,16 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import reset.reset.Exceptions.BusinessException;
 import reset.reset.Exceptions.EntityNotFoundException;
+import reset.reset.Models.auth.User;
 import reset.reset.Models.stock.Armazem;
+import reset.reset.Repositories.auth.UserRepository;
 import reset.reset.Repositories.core.EmpresaRepository;
 import reset.reset.Repositories.stock.ArmazemRepository;
+import reset.reset.Security.UserPrincipal;
 import reset.reset.Services.base.BaseServiceImpl;
 
 import java.util.List;
@@ -21,6 +26,8 @@ public class ArmazemService extends BaseServiceImpl<Armazem, Long, ArmazemReposi
     private final ArmazemRepository armazemRepository;
     @Autowired
     private EmpresaRepository empresaRepository;
+    @Autowired
+    private UserRepository userRepository;
 
     public ArmazemService(ArmazemRepository repository) {
         super(repository);
@@ -29,12 +36,13 @@ public class ArmazemService extends BaseServiceImpl<Armazem, Long, ArmazemReposi
 
     @Override
     protected void validateBeforeSave(Armazem armazem) {
-        validateEmpresaExists(armazem.getEmpresa().getId());
+//        validateEmpresaExists(armazem.getEmpresa().getId());
+        armazem.setEmpresa(getAuthenticatedUser().getEmpresa());
     }
 
     @Override
     protected void validateBeforeUpdate(Long id, Armazem armazem) {
-        validateEmpresaExists(armazem.getEmpresa().getId());
+//        validateEmpresaExists(armazem.getEmpresa().getId());
     }
 
     private void validateEmpresaExists(Long empresaId) {
@@ -49,5 +57,15 @@ public class ArmazemService extends BaseServiceImpl<Armazem, Long, ArmazemReposi
 
     public List<Armazem> findAllByEmpresaIdOrderByNome(Long empresaId) {
         return armazemRepository.findAllByEmpresaIdOrderByNome(empresaId);
+    }
+
+    private User getAuthenticatedUser() {
+        try {
+            UserPrincipal principal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+            return userRepository.findById(principal.getId())
+                    .orElseThrow(() -> new EntityNotFoundException("User not found"));
+        } catch (Exception e) {
+            throw new BusinessException("User not authenticated");
+        }
     }
 }

@@ -8,14 +8,20 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import reset.reset.Exceptions.BusinessException;
 import reset.reset.Exceptions.EntityNotFoundException;
+import reset.reset.Models.product.Produto;
+import reset.reset.Models.product.ProdutoCompostoItem;
 import reset.reset.Models.purchase.Compra;
 import reset.reset.Models.purchase.CompraItem;
+import reset.reset.Models.stock.Armazem;
 import reset.reset.Models.stock.MovimentoStock;
+import reset.reset.Models.stock.Stock;
 import reset.reset.Repositories.core.EmpresaRepository;
 import reset.reset.Repositories.customer.FornecedorRepository;
 import reset.reset.Repositories.product.IvaRepository;
 import reset.reset.Repositories.product.ProdutoRepository;
 import reset.reset.Repositories.purchase.CompraRepository;
+import reset.reset.Repositories.stock.ArmazemRepository;
+import reset.reset.Repositories.stock.MovimentoStockRepository;
 import reset.reset.Repositories.stock.StockRepository;
 import reset.reset.Services.base.BaseServiceImpl;
 import reset.reset.dto.filter.BaseFilter;
@@ -43,6 +49,10 @@ public class CompraService extends BaseServiceImpl<Compra, Long, CompraRepositor
     private IvaRepository ivaRepository;
     @Autowired
     private StockRepository stockRepository;
+    @Autowired
+    private ArmazemRepository armazemRepository;
+    @Autowired
+    private MovimentoStockRepository movimentoStockRepository;
 
     public CompraService(CompraRepository repository) {
         super(repository);
@@ -210,25 +220,91 @@ public class CompraService extends BaseServiceImpl<Compra, Long, CompraRepositor
         return compraRepository.save(compra);
     }
 
-    private void adicionarAoStock(CompraItem item, Long armazemId, Compra compra) {
+    @Transactional
+    public void adicionarAoStock(CompraItem item, Long armazemId, Compra compra) {
         try {
-            stockRepository.updateQuantidade(
-                    item.getProduto().getId(),
-                    armazemId,
-                    item.getQuantidade()
-            );
+            Long produtoId = item.getProduto().getId();
+            BigDecimal quantidade = item.getQuantidade();
+            Produto produto = item.getProduto();
 
-            MovimentoStock movimento = new MovimentoStock();
-            movimento.setEmpresa(compra.getEmpresa());
-            movimento.setProduto(item.getProduto());
-            movimento.setTipo("ENTRADA_COMPRA");
-            movimento.setQuantidade(item.getQuantidade());
-            movimento.setReferencia("COMPRA-" + compra.getId());
-            movimento.setDataMovimento(LocalDateTime.now());
+            // Validar se o produto é composto
+            if (produto.getIsComposto() != null && produto.getIsComposto()) {
+                log.warn("Produto {} é composto. O stock será adicionado aos itens filhos.", produtoId);
+                // Para produtos compostos, adicionar stock a cada item filho
+                for (ProdutoCompostoItem compostoItem : produto.getItensComposto()) {
+                    BigDecimal quantidadeFilho = compostoItem.getQuantidade().multiply(quantidade);
+                    adicionarStockItem(compostoItem.getProdutoFilho(), armazemId, quantidadeFilho, compra, produto);
+                }
+                return;
+            }
+
+            // Produto simples - adicionar stock diretamente
+            adicionarStockItem(produto, armazemId, quantidade, compra, null);
 
         } catch (Exception e) {
-            log.error("Error adding stock for item: {}", item.getId(), e);
-            throw new BusinessException("Error adding stock: " + e.getMessage());
+            log.error("Erro ao adicionar stock para item: {}", item.getId(), e);
+            throw new BusinessException("Erro ao adicionar stock: " + e.getMessage());
+        }
+    }
+
+    private void adicionarStockItem(Produto produto, Long armazemId, BigDecimal quantidade,
+                                    Compra compra, Produto produtoPai) {
+        try {
+            Long produtoId = produto.getId();
+            String nomeProduto = produto.getNome();
+
+            // Validar armazém
+            Armazem armazem = armazemRepository.findById(armazemId)
+                    .orElseThrow(() -> new EntityNotFoundException("Armazém não encontrado com id: " + armazemId));
+
+            // Buscar ou criar stock
+            Stock stock = stockRepository.findByProdutoIdAndArmazemId(produtoId, armazemId)
+                    .orElseGet(() -> {
+                        Stock novoStock = new Stock();
+                        novoStock.setProduto(produto);
+                        novoStock.setArmazem(armazem);
+                        novoStock.setQuantidadeAtual(BigDecimal.ZERO);
+                        log.info("Criando novo registro de stock para produto {} no armazém {}", produtoId, armazemId);
+                        return novoStock;
+                    });
+
+            // Atualizar quantidade
+            BigDecimal quantidadeAnterior = stock.getQuantidadeAtual();
+            BigDecimal novaQuantidade = quantidadeAnterior.add(quantidade);
+            stock.setQuantidadeAtual(novaQuantidade);
+
+            // Salvar stock
+            stock = stockRepository.save(stock);
+
+            // Determinar referência
+            String referencia = "COMPRA-" + compra.getId();
+            if (produtoPai != null) {
+                referencia = referencia + "-" + produtoPai.getNome();
+            }
+
+            // Registrar movimento
+            MovimentoStock movimento = new MovimentoStock();
+            movimento.setEmpresa(compra.getEmpresa());
+            movimento.setProduto(produto);
+            movimento.setArmazem(armazem);
+            movimento.setTipo("ENTRADA_COMPRA");
+            movimento.setQuantidade(quantidade);
+            movimento.setReferencia(referencia);
+            movimento.setDataMovimento(LocalDateTime.now());
+//            movimento.setObservacao(String.format(
+//                    "Entrada de stock - Produto: %s, Quantidade: %s, Compra: #%d%s",
+//                    nomeProduto, quantidade, compra.getId(),
+//                    produtoPai != null ? " (componente de " + produtoPai.getNome() + ")" : ""
+//            ));
+
+            movimentoStockRepository.save(movimento);
+
+            log.info("Stock adicionado - Produto: {}, Armazém: {}, Quantidade: {}, Anterior: {}, Nova: {}",
+                    nomeProduto, armazemId, quantidade, quantidadeAnterior, novaQuantidade);
+
+        } catch (Exception e) {
+            log.error("Erro ao adicionar stock para produto: {}", produto.getId(), e);
+            throw new BusinessException("Erro ao adicionar stock para " + produto.getNome() + ": " + e.getMessage());
         }
     }
 
