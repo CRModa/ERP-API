@@ -22,6 +22,7 @@ public class CompraItemDTO {
     private Long ivaId;
     private String ivaCodigo;
     private BigDecimal ivaTaxa;
+    private BigDecimal subtotal;
 
     public static CompraItemDTO fromEntity(CompraItem item) {
         return CompraItemDTO.builder()
@@ -34,6 +35,7 @@ public class CompraItemDTO {
                 .ivaId(item.getIva() != null ? item.getIva().getId() : null)
                 .ivaCodigo(item.getIva() != null ? item.getIva().getCodigo() : null)
                 .ivaTaxa(item.getIva() != null ? item.getIva().getTaxa() : null)
+                .subtotal(item.getQuantidade().multiply(item.getPrecoUnitario()))
                 .build();
     }
 }

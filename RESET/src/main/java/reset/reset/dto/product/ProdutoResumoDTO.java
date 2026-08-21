@@ -20,4 +20,5 @@ public class ProdutoResumoDTO {
     private Boolean ativo;
     private Boolean disponivel;
     private BigDecimal quantidadeEstoque;
+    private BigDecimal precoCusto;
 }

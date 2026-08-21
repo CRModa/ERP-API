@@ -19,6 +19,8 @@ import reset.reset.Repositories.purchase.CompraRepository;
 import reset.reset.Repositories.stock.StockRepository;
 import reset.reset.Services.base.BaseServiceImpl;
 import reset.reset.dto.filter.BaseFilter;
+import reset.reset.dto.purchase.CompraDTO;
+import reset.reset.dto.purchase.CompraResumoDTO;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -30,6 +32,7 @@ import java.util.List;
 public class CompraService extends BaseServiceImpl<Compra, Long, CompraRepository> {
 
     private final CompraRepository compraRepository;
+
     @Autowired
     private FornecedorRepository fornecedorRepository;
     @Autowired
@@ -115,13 +118,11 @@ public class CompraService extends BaseServiceImpl<Compra, Long, CompraRepositor
     @Override
     @Transactional
     public Compra save(Compra compra) {
-        // Calculate total if not provided
         if (compra.getTotal() == null) {
             BigDecimal total = calcularTotalCompra(compra);
             compra.setTotal(total);
         }
 
-        // Set default values
         if (compra.getData() == null) {
             compra.setData(LocalDate.now());
         }
@@ -151,6 +152,36 @@ public class CompraService extends BaseServiceImpl<Compra, Long, CompraRepositor
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
+    // ==================== MÉTODOS COM RETORNO DTO ====================
+
+    public CompraDTO findByIdDTO(Long id) {
+        Compra compra = findByIdOrThrow(id);
+        return CompraDTO.fromEntity(compra);
+    }
+
+    public Page<CompraResumoDTO> filterSummary(BaseFilter filter) {
+        Page<Compra> compras = compraRepository.findAll(filter.toPageable());
+        return compras.map(CompraResumoDTO::fromEntity);
+    }
+
+    public Page<CompraResumoDTO> findByFornecedorIdSummary(Long fornecedorId, Pageable pageable) {
+        Page<Compra> compras = compraRepository.findByFornecedorId(fornecedorId, pageable);
+        return compras.map(CompraResumoDTO::fromEntity);
+    }
+
+    public Page<CompraResumoDTO> findByEstadoSummary(String estado, Pageable pageable) {
+        Page<Compra> compras = compraRepository.findByEstadoPageable(estado, pageable);
+        return compras.map(CompraResumoDTO::fromEntity);
+    }
+
+    public List<CompraDTO> findAllDTO() {
+        return compraRepository.findAll().stream()
+                .map(CompraDTO::fromEntity)
+                .toList();
+    }
+
+    // ==================== MÉTODOS TRANSACIONAIS ====================
+
     @Transactional
     public Compra confirmarCompra(Long id) {
         Compra compra = findByIdOrThrow(id);
@@ -171,7 +202,6 @@ public class CompraService extends BaseServiceImpl<Compra, Long, CompraRepositor
             throw new BusinessException("Only confirmed or pending purchases can be finalized");
         }
 
-        // Atualizar stock para cada item
         for (CompraItem item : compra.getItens()) {
             adicionarAoStock(item, armazemId, compra);
         }
@@ -182,23 +212,19 @@ public class CompraService extends BaseServiceImpl<Compra, Long, CompraRepositor
 
     private void adicionarAoStock(CompraItem item, Long armazemId, Compra compra) {
         try {
-            // Adicionar ao stock
             stockRepository.updateQuantidade(
                     item.getProduto().getId(),
                     armazemId,
                     item.getQuantidade()
             );
 
-            // Registrar movimento de stock
             MovimentoStock movimento = new MovimentoStock();
             movimento.setEmpresa(compra.getEmpresa());
             movimento.setProduto(item.getProduto());
-            movimento.setArmazem(null); // Will be set with armazem
             movimento.setTipo("ENTRADA_COMPRA");
             movimento.setQuantidade(item.getQuantidade());
             movimento.setReferencia("COMPRA-" + compra.getId());
             movimento.setDataMovimento(LocalDateTime.now());
-            // Save movimento (assuming you have movimentoStockRepository)
 
         } catch (Exception e) {
             log.error("Error adding stock for item: {}", item.getId(), e);
@@ -217,6 +243,8 @@ public class CompraService extends BaseServiceImpl<Compra, Long, CompraRepositor
         compra.setEstado("CANCELADA");
         return compraRepository.save(compra);
     }
+
+    // ==================== MÉTODOS DE CONSULTA ====================
 
     public Page<Compra> filter(BaseFilter filter) {
         return compraRepository.findAll(filter.toPageable());

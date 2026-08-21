@@ -17,6 +17,8 @@ import reset.reset.Controllers.base.BaseController;
 import reset.reset.Models.purchase.Compra;
 import reset.reset.Services.purchase.CompraService;
 import reset.reset.dto.filter.BaseFilter;
+import reset.reset.dto.purchase.CompraDTO;
+import reset.reset.dto.purchase.CompraResumoDTO;
 import reset.reset.dto.request.CompraRequest;
 
 import java.math.BigDecimal;
@@ -35,61 +37,61 @@ public class CompraController extends BaseController {
     @PostMapping
     @Operation(summary = "Create a new purchase")
     @PreAuthorize("hasPermission('COMPRA_CREATE')")
-    public ResponseEntity<ApiResponse<Compra>> create(@Valid @RequestBody CompraRequest request) {
+    public ResponseEntity<ApiResponse<CompraDTO>> create(@Valid @RequestBody CompraRequest request) {
         log.info("Creating new compra");
         Compra compra = request.toEntity();
         Compra saved = compraService.save(compra);
-        return created(saved);
+        return created(CompraDTO.fromEntity(saved));
     }
 
     @PutMapping("/{id}")
     @Operation(summary = "Update an existing purchase")
     @PreAuthorize("hasPermission('COMPRA_UPDATE')")
-    public ResponseEntity<ApiResponse<Compra>> update(@PathVariable Long id,
-                                                      @Valid @RequestBody CompraRequest request) {
+    public ResponseEntity<ApiResponse<CompraDTO>> update(@PathVariable Long id,
+                                                         @Valid @RequestBody CompraRequest request) {
         log.info("Updating compra with id: {}", id);
         Compra compra = request.toEntity();
         compra.setId(id);
         Compra updated = compraService.update(id, compra);
-        return success(updated, "Compra updated successfully");
+        return success(CompraDTO.fromEntity(updated), "Compra updated successfully");
     }
 
     @GetMapping("/{id}")
     @Operation(summary = "Get purchase by ID")
     @PreAuthorize("hasPermission('COMPRA_READ')")
-    public ResponseEntity<ApiResponse<Compra>> findById(@PathVariable Long id) {
+    public ResponseEntity<ApiResponse<CompraDTO>> findById(@PathVariable Long id) {
         Compra compra = compraService.findByIdOrThrow(id);
-        return success(compra);
+        return success(CompraDTO.fromEntity(compra));
     }
 
     @GetMapping
     @Operation(summary = "Get all purchases with pagination and filtering")
     @PreAuthorize("hasPermission('COMPRA_READ')")
-    public ResponseEntity<ApiResponse<Page<Compra>>> findAll(
+    public ResponseEntity<ApiResponse<Page<CompraResumoDTO>>> findAll(
             @PageableDefault(size = 20, sort = "id", direction = Sort.Direction.DESC) Pageable pageable,
             BaseFilter filter) {
-        Page<Compra> compras = compraService.filter(filter);
+        Page<CompraResumoDTO> compras = compraService.filterSummary(filter);
         return success(compras);
     }
 
     @GetMapping("/fornecedor/{fornecedorId}")
     @Operation(summary = "Get purchases by supplier")
     @PreAuthorize("hasPermission('COMPRA_READ')")
-    public ResponseEntity<ApiResponse<Page<Compra>>> findByFornecedor(
+    public ResponseEntity<ApiResponse<Page<CompraResumoDTO>>> findByFornecedor(
             @PathVariable Long fornecedorId,
             @PageableDefault(size = 20) Pageable pageable) {
-        Page<Compra> compras = compraService.findByFornecedorId(fornecedorId, pageable);
+        Page<CompraResumoDTO> compras = compraService.findByFornecedorIdSummary(fornecedorId, pageable);
         return success(compras);
     }
 
     @GetMapping("/estado/{estado}")
     @Operation(summary = "Get purchases by status")
     @PreAuthorize("hasPermission('COMPRA_READ')")
-    public ResponseEntity<ApiResponse<Page<Compra>>> findByEstado(
+    public ResponseEntity<ApiResponse<Page<CompraResumoDTO>>> findByEstado(
             @PathVariable String estado,
             @PageableDefault(size = 20) Pageable pageable) {
-        // Add method to service
-        return success(Page.empty());
+        Page<CompraResumoDTO> compras = compraService.findByEstadoSummary(estado, pageable);
+        return success(compras);
     }
 
     @GetMapping("/empresa/{empresaId}/total-periodo")
@@ -106,27 +108,27 @@ public class CompraController extends BaseController {
     @PatchMapping("/{id}/confirmar")
     @Operation(summary = "Confirm purchase")
     @PreAuthorize("hasPermission('COMPRA_UPDATE')")
-    public ResponseEntity<ApiResponse<Compra>> confirmar(@PathVariable Long id) {
+    public ResponseEntity<ApiResponse<CompraDTO>> confirmar(@PathVariable Long id) {
         Compra compra = compraService.confirmarCompra(id);
-        return success(compra, "Compra confirmed");
+        return success(CompraDTO.fromEntity(compra), "Compra confirmed");
     }
 
     @PatchMapping("/{id}/finalizar")
     @Operation(summary = "Finalize purchase (updates stock)")
     @PreAuthorize("hasPermission('COMPRA_UPDATE')")
-    public ResponseEntity<ApiResponse<Compra>> finalizar(@PathVariable Long id,
-                                                         @RequestParam Long armazemId) {
+    public ResponseEntity<ApiResponse<CompraDTO>> finalizar(@PathVariable Long id,
+                                                            @RequestParam Long armazemId) {
         Compra compra = compraService.finalizarCompra(id, armazemId);
-        return success(compra, "Compra finalized and stock updated");
+        return success(CompraDTO.fromEntity(compra), "Compra finalized and stock updated");
     }
 
     @PatchMapping("/{id}/cancelar")
     @Operation(summary = "Cancel purchase")
     @PreAuthorize("hasPermission('COMPRA_UPDATE')")
-    public ResponseEntity<ApiResponse<Compra>> cancelar(@PathVariable Long id,
-                                                        @RequestParam String motivo) {
+    public ResponseEntity<ApiResponse<CompraDTO>> cancelar(@PathVariable Long id,
+                                                           @RequestParam String motivo) {
         Compra compra = compraService.cancelarCompra(id, motivo);
-        return success(compra, "Compra cancelled");
+        return success(CompraDTO.fromEntity(compra), "Compra cancelled");
     }
 
     @DeleteMapping("/{id}")

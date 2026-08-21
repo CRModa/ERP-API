@@ -30,5 +30,8 @@ public interface CompraRepository extends BaseRepository<Compra, Long> {
                                            @Param("dataInicio") LocalDate dataInicio,
                                            @Param("dataFim") LocalDate dataFim);
 
+    @Query("SELECT c FROM Compra c WHERE c.estado = :estado")
+    Page<Compra> findByEstadoPageable(@Param("estado") String estado, Pageable pageable);
+
     Page<Compra> findByEmpresaId(Long empresaId, Pageable pageable);
 }

@@ -26,10 +26,11 @@ import reset.reset.Repositories.stock.StockRepository;
 import reset.reset.Security.UserPrincipal;
 import reset.reset.Services.base.BaseServiceImpl;
 import reset.reset.dto.filter.ProdutoFilter;
-import reset.reset.dto.product.ProdutoCompostoItemDTO;
-import reset.reset.dto.product.ProdutoRestauranteDTO;
-import reset.reset.dto.projection.ProdutoResumo;
 import reset.reset.dto.product.ProdutoCompostoDTO;
+import reset.reset.dto.product.ProdutoDTO;
+import reset.reset.dto.product.ProdutoResumoDTO;
+import reset.reset.dto.product.ProdutoRestauranteDTO;
+import reset.reset.dto.product.ProdutoCompostoItemDTO;
 import reset.reset.dto.request.product.ProdutoCompostoItemRequest;
 import reset.reset.dto.request.product.ProdutoCompostoRequest;
 import reset.reset.dto.request.product.ProdutoRequest;
@@ -167,7 +168,6 @@ public class ProdutoService extends BaseServiceImpl<Produto, Long, ProdutoReposi
 
     @Transactional
     public ProdutoCompostoDTO criarProdutoComposto(ProdutoCompostoRequest request) {
-        // Validar e criar o produto pai
         Produto produto = new Produto();
         produto.setNome(request.getNome());
         produto.setCodigo(request.getCodigo());
@@ -193,17 +193,14 @@ public class ProdutoService extends BaseServiceImpl<Produto, Long, ProdutoReposi
         User user = getAuthenticatedUser();
         produto.setEmpresa(user.getEmpresa());
 
-        // Salvar produto pai
         Produto saved = produtoRepository.save(produto);
 
-        // Adicionar itens do produto composto
         if (request.getItensComposto() != null && !request.getItensComposto().isEmpty()) {
             Set<ProdutoCompostoItem> itens = new HashSet<>();
             for (ProdutoCompostoItemRequest itemRequest : request.getItensComposto()) {
                 Produto produtoFilho = produtoRepository.findById(itemRequest.getProdutoFilhoId())
                         .orElseThrow(() -> new EntityNotFoundException("Product not found with id: " + itemRequest.getProdutoFilhoId()));
 
-                // Verificar se o produto filho não é composto
                 validateNaoPodeSerComposto(produtoFilho);
 
                 ProdutoCompostoItem item = new ProdutoCompostoItem();
@@ -233,7 +230,6 @@ public class ProdutoService extends BaseServiceImpl<Produto, Long, ProdutoReposi
             throw new BusinessException("Product is not a composed product");
         }
 
-        // Atualizar dados básicos
         produto.setNome(request.getNome());
         produto.setCodigo(request.getCodigo());
         produto.setDescricao(request.getDescricao());
@@ -253,13 +249,11 @@ public class ProdutoService extends BaseServiceImpl<Produto, Long, ProdutoReposi
                 .orElseThrow(() -> new EntityNotFoundException("IVA not found"));
         produto.setIva(iva);
 
-        // Remover itens antigos
         if (produto.getItensComposto() != null) {
             produtoCompostoItemRepository.deleteAll(produto.getItensComposto());
             produto.getItensComposto().clear();
         }
 
-        // Adicionar novos itens
         if (request.getItensComposto() != null && !request.getItensComposto().isEmpty()) {
             Set<ProdutoCompostoItem> itens = new HashSet<>();
             for (ProdutoCompostoItemRequest itemRequest : request.getItensComposto()) {
@@ -285,6 +279,22 @@ public class ProdutoService extends BaseServiceImpl<Produto, Long, ProdutoReposi
         Produto updated = produtoRepository.save(produto);
         log.info("Produto composto atualizado: {}", updated.getNome());
         return toCompostoDTO(updated);
+    }
+
+    public ProdutoCompostoDTO findCompostoByIdDTO(Long id) {
+        Produto produto = findByIdOrThrow(id);
+        if (!produto.getIsComposto()) {
+            throw new BusinessException("Product is not a composed product");
+        }
+        return toCompostoDTO(produto);
+    }
+
+    public List<ProdutoCompostoDTO> findCompostosByEmpresaDTO() {
+        Long empresaId = getCurrentEmpresaId();
+        List<Produto> produtos = produtoRepository.findCompostosByEmpresaId(empresaId);
+        return produtos.stream()
+                .map(this::toCompostoDTO)
+                .collect(Collectors.toList());
     }
 
     // ==================== CRUD PRODUTO SIMPLES ====================
@@ -333,30 +343,42 @@ public class ProdutoService extends BaseServiceImpl<Produto, Long, ProdutoReposi
         return produtoRepository.save(produto);
     }
 
-    // ==================== MÉTODOS DE LISTAGEM ====================
+    // ==================== MÉTODOS COM RETORNO DTO ====================
 
-    public Page<Produto> filter(ProdutoFilter filter) {
-        return produtoRepository.filter(filter);
+    public Page<ProdutoDTO> filterDTO(ProdutoFilter filter) {
+        Page<Produto> produtos = produtoRepository.filter(filter);
+        return produtos.map(ProdutoDTO::fromEntity);
     }
 
-    public Page<Produto> findByEmpresaId(Pageable pageable) {
-        Long empresaId = getAuthenticatedUser().getEmpresa().getId();
-        return produtoRepository.findByEmpresaId(empresaId, pageable);
+    public Page<ProdutoDTO> findByEmpresaIdDTO(Pageable pageable) {
+        Long empresaId = getCurrentEmpresaId();
+        Page<Produto> produtos = produtoRepository.findByEmpresaId(empresaId, pageable);
+        return produtos.map(ProdutoDTO::fromEntity);
     }
 
-    public Page<Produto> findActiveByEmpresaId(Pageable pageable) {
-        Long empresaId = getAuthenticatedUser().getEmpresa().getId();
-        return produtoRepository.findActiveByEmpresaId(empresaId, pageable);
+    public Page<ProdutoDTO> findActiveByEmpresaIdDTO(Pageable pageable) {
+        Long empresaId = getCurrentEmpresaId();
+        Page<Produto> produtos = produtoRepository.findActiveByEmpresaId(empresaId, pageable);
+        return produtos.map(ProdutoDTO::fromEntity);
     }
 
-    public Page<ProdutoResumo> findProdutoResumoByEmpresaId(Pageable pageable) {
-        Long empresaId = getAuthenticatedUser().getEmpresa().getId();
-        return produtoRepository.findProdutoResumoByEmpresaId(empresaId, pageable);
+    public Page<ProdutoResumoDTO> findProdutoResumoByEmpresaIdDTO(Pageable pageable) {
+        Long empresaId = getCurrentEmpresaId();
+        return produtoRepository.findProdutoResumoByEmpresaId(empresaId, pageable)
+                .map(this::toProdutoResumoDTO);
     }
 
-    public Page<Produto> findByCategoriaId(Long categoriaId, Pageable pageable) {
-        return produtoRepository.findByEmpresaIdAndCategoriaId(
-                getCurrentEmpresaId(), categoriaId, pageable);
+    public Page<ProdutoDTO> findByCategoriaIdDTO(Long categoriaId, Pageable pageable) {
+        Long empresaId = getCurrentEmpresaId();
+        Page<Produto> produtos = produtoRepository.findByEmpresaIdAndCategoriaId(empresaId, categoriaId, pageable);
+        return produtos.map(ProdutoDTO::fromEntity);
+    }
+
+    public List<ProdutoDTO> findProdutosByPriceRangeDTO(BigDecimal minPrice, BigDecimal maxPrice) {
+        List<Produto> produtos = produtoRepository.findProdutosByPriceRange(minPrice, maxPrice);
+        return produtos.stream()
+                .map(ProdutoDTO::fromEntity)
+                .collect(Collectors.toList());
     }
 
     // ==================== MÉTODOS PARA RESTAURANTE ====================
@@ -398,41 +420,6 @@ public class ProdutoService extends BaseServiceImpl<Produto, Long, ProdutoReposi
         return toRestauranteDTO(produto);
     }
 
-//    public List<ProdutoRestauranteDTO> findProdutosRestaurante(Long empresaId) {
-//        List<Produto> produtos = produtoRepository.findByEmpresaIdAndCategoriaVisivelRestaurante(empresaId);
-//        return produtos.stream()
-//                .filter(Produto::getAtivo)
-//                .filter(Produto::getDisponivel)
-//                .map(this::toRestauranteDTO)
-//                .collect(Collectors.toList());
-//    }
-
-//    public List<ProdutoRestauranteDTO> findProdutosByCategoriaRestaurante(Long categoriaId) {
-//        List<Produto> produtos = produtoRepository.findByCategoriaIdAndDisponivelTrue(categoriaId);
-//        return produtos.stream()
-//                .filter(Produto::getAtivo)
-//                .filter(Produto::getDisponivel)
-//                .map(this::toRestauranteDTO)
-//                .collect(Collectors.toList());
-//    }
-
-//    public List<ProdutoRestauranteDTO> findProdutosDestaque(Long empresaId) {
-//        List<Produto> produtos = produtoRepository.findDestaquesByEmpresaId(empresaId);
-//        return produtos.stream()
-//                .filter(Produto::getAtivo)
-//                .filter(Produto::getDisponivel)
-//                .map(this::toRestauranteDTO)
-//                .collect(Collectors.toList());
-//    }
-
-//    public ProdutoRestauranteDTO findProdutoRestauranteById(Long id) {
-//        Produto produto = findByIdOrThrow(id);
-//        if (!produto.getAtivo() || !produto.getDisponivel()) {
-//            throw new BusinessException("Produto não está disponível");
-//        }
-//        return toRestauranteDTO(produto);
-//    }
-
     public List<CategoriaRestauranteDTO> findCategoriasRestaurante() {
         Long empresaId = getAuthenticatedUser().getEmpresa().getId();
         List<CategoriaProduto> categorias = categoriaRepository.findByEmpresaIdAndVisivelRestauranteTrue(empresaId);
@@ -443,31 +430,18 @@ public class ProdutoService extends BaseServiceImpl<Produto, Long, ProdutoReposi
 
     // ==================== MÉTODOS DE CONVERSÃO ====================
 
-//    private ProdutoRestauranteDTO toRestauranteDTO(Produto produto) {
-//        return ProdutoRestauranteDTO.builder()
-//                .id(produto.getId())
-//                .codigo(produto.getCodigo())
-//                .nome(produto.getNome())
-//                .descricao(produto.getDescricao())
-//                .precoVenda(produto.getPrecoVenda())
-////                .precoCusto(produto.getPrecoCusto())
-//                .tempoPreparo(produto.getTempoPreparo())
-//                .ingredientes(produto.getIngredientes())
-////                .informacaoNutricional(produto.getInformacaoNutricional())
-//                .imagem(produto.getImagem())
-//                .disponivel(produto.getDisponivel())
-//                .isComposto(produto.getIsComposto())
-////                .destaque(produto.getDestaque())
-//                .categoriaId(produto.getCategoria() != null ? produto.getCategoria().getId() : null)
-//                .categoriaNome(produto.getCategoria() != null ? produto.getCategoria().getDescricao() : null)
-//                .ivaId(produto.getIva() != null ? produto.getIva().getId() : null)
-//                .ivaTaxa(produto.getIva() != null ? produto.getIva().getTaxa() : null)
-//                .itensComposto(produto.getIsComposto() && produto.getItensComposto() != null ?
-//                        produto.getItensComposto().stream()
-//                                .map(this::toCompostoItemDTO)
-//                                .collect(Collectors.toList()) : null)
-//                .build();
-//    }
+    private ProdutoResumoDTO toProdutoResumoDTO(reset.reset.dto.projection.ProdutoResumo resumo) {
+        return ProdutoResumoDTO.builder()
+                .id(resumo.getId())
+                .codigo(resumo.getCodigo())
+                .nome(resumo.getNome())
+                .precoVenda(resumo.getPrecoVenda())
+                .precoCusto(resumo.getPrecoCusto())
+                .categoriaNome(resumo.getCategoriaNome())
+                .ativo(true)
+                .disponivel(true)
+                .build();
+    }
 
     private CategoriaRestauranteDTO toCategoriaRestauranteDTO(CategoriaProduto categoria) {
         return CategoriaRestauranteDTO.builder()
@@ -486,19 +460,6 @@ public class ProdutoService extends BaseServiceImpl<Produto, Long, ProdutoReposi
                                 .collect(Collectors.toList()) : null)
                 .build();
     }
-
-    // ==================== MÉTODOS DE GESTÃO DE DISPONIBILIDADE ====================
-
-    @Transactional
-    public Produto toggleDisponibilidade(Long id) {
-        Produto produto = findByIdOrThrow(id);
-        produto.setDisponivel(!produto.getDisponivel());
-        Produto updated = produtoRepository.save(produto);
-        log.info("Produto {} disponibilidade alterada para: {}", updated.getNome(), updated.getDisponivel());
-        return updated;
-    }
-
-    // ==================== MÉTODOS DE CONVERSÃO PARA DTO ====================
 
     public ProdutoCompostoDTO toCompostoDTO(Produto produto) {
         return ProdutoCompostoDTO.builder()
@@ -608,6 +569,15 @@ public class ProdutoService extends BaseServiceImpl<Produto, Long, ProdutoReposi
         return produtoRepository.save(produto);
     }
 
+    @Transactional
+    public Produto toggleDisponibilidade(Long id) {
+        Produto produto = findByIdOrThrow(id);
+        produto.setDisponivel(!produto.getDisponivel());
+        Produto updated = produtoRepository.save(produto);
+        log.info("Produto {} disponibilidade alterada para: {}", updated.getNome(), updated.getDisponivel());
+        return updated;
+    }
+
     public List<Produto> findActiveByEmpresaIdOrderByNome() {
         Long empresaId = getAuthenticatedUser().getEmpresa().getId();
         return produtoRepository.findActiveByEmpresaIdOrderByNome(empresaId);
@@ -621,5 +591,4 @@ public class ProdutoService extends BaseServiceImpl<Produto, Long, ProdutoReposi
     public List<Produto> findProdutosByPriceRange(BigDecimal minPrice, BigDecimal maxPrice) {
         return produtoRepository.findProdutosByPriceRange(minPrice, maxPrice);
     }
-
 }
