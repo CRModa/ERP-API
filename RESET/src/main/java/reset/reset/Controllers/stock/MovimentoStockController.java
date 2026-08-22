@@ -1,5 +1,4 @@
 package reset.reset.Controllers.stock;
-
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -15,9 +14,12 @@ import reset.reset.Controllers.base.BaseController;
 import reset.reset.Models.stock.MovimentoStock;
 import reset.reset.Services.stock.MovimentoStockService;
 import reset.reset.dto.filter.MovimentoStockFilter;
+import reset.reset.dto.stock.MovimentoStockDTO;
+import reset.reset.dto.stock.MovimentoStockResumoDTO;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @RestController
 @RequestMapping("/movimentos-stock")
@@ -32,41 +34,40 @@ public class MovimentoStockController extends BaseController {
     @GetMapping("/{id}")
     @Operation(summary = "Get stock movement by ID")
     @PreAuthorize("hasPermission('STOCK_READ')")
-    public ResponseEntity<ApiResponse<MovimentoStock>> findById(@PathVariable Long id) {
+    public ResponseEntity<ApiResponse<MovimentoStockDTO>> findById(@PathVariable Long id) {
         MovimentoStock movimento = movimentoStockService.findByIdOrThrow(id);
-        return success(movimento);
+        return success(MovimentoStockDTO.fromEntity(movimento));
     }
 
     @GetMapping
     @Operation(summary = "Get all stock movements with pagination and filtering")
     @PreAuthorize("hasPermission('STOCK_READ')")
-    public ResponseEntity<ApiResponse<Page<MovimentoStock>>> findAll(
+    public ResponseEntity<ApiResponse<Page<MovimentoStockDTO>>> findAll(
             @PageableDefault(size = 20) Pageable pageable,
             MovimentoStockFilter filter) {
-        Page<MovimentoStock> movimentos = movimentoStockService.filter(filter);
+        Page<MovimentoStockDTO> movimentos = movimentoStockService.filterDTO(filter);
         return success(movimentos);
     }
 
     @GetMapping("/produto/{produtoId}")
     @Operation(summary = "Get stock movements by product")
     @PreAuthorize("hasPermission('STOCK_READ')")
-    public ResponseEntity<ApiResponse<Page<MovimentoStock>>> findByProduto(
+    public ResponseEntity<ApiResponse<Page<MovimentoStockDTO>>> findByProduto(
             @PathVariable Long produtoId,
             @PageableDefault(size = 20) Pageable pageable) {
-        // Add method to service
-        return success(Page.empty());
+        Page<MovimentoStockDTO> movimentos = movimentoStockService.findByProdutoIdDTO(produtoId, pageable);
+        return success(movimentos);
     }
 
     @GetMapping("/produto/{produtoId}/periodo")
     @Operation(summary = "Get stock movements by product and period")
     @PreAuthorize("hasPermission('STOCK_READ')")
-    public ResponseEntity<ApiResponse<Page<MovimentoStock>>> findByProdutoAndPeriodo(
+    public ResponseEntity<ApiResponse<List<MovimentoStockDTO>>> findByProdutoAndPeriodo(
             @PathVariable Long produtoId,
             @RequestParam LocalDateTime inicio,
-            @RequestParam LocalDateTime fim,
-            @PageableDefault(size = 20) Pageable pageable) {
-        // Add method to service
-        return success(Page.empty());
+            @RequestParam LocalDateTime fim) {
+        List<MovimentoStockDTO> movimentos = movimentoStockService.findMovimentosByProdutoAndPeriodoDTO(produtoId, inicio, fim);
+        return success(movimentos);
     }
 
     @GetMapping("/produto/{produtoId}/sum/{tipo}")
@@ -77,5 +78,51 @@ public class MovimentoStockController extends BaseController {
             @PathVariable String tipo) {
         BigDecimal sum = movimentoStockService.sumQuantidadeByProdutoAndTipo(produtoId, tipo);
         return success(sum);
+    }
+
+    @GetMapping("/armazem/{armazemId}")
+    @Operation(summary = "Get stock movements by warehouse")
+    @PreAuthorize("hasPermission('STOCK_READ')")
+    public ResponseEntity<ApiResponse<Page<MovimentoStockDTO>>> findByArmazem(
+            @PathVariable Long armazemId,
+            @PageableDefault(size = 20) Pageable pageable) {
+        Page<MovimentoStockDTO> movimentos = movimentoStockService.findByArmazemIdDTO(armazemId, pageable);
+        return success(movimentos);
+    }
+
+    @GetMapping("/empresa")
+    @Operation(summary = "Get stock movements by company")
+    @PreAuthorize("hasPermission('STOCK_READ')")
+    public ResponseEntity<ApiResponse<Page<MovimentoStockDTO>>> findByEmpresa(
+            @PageableDefault(size = 20) Pageable pageable) {
+        Page<MovimentoStockDTO> movimentos = movimentoStockService.findByEmpresaIdDTO(pageable);
+        return success(movimentos);
+    }
+
+    @GetMapping("/tipo/{tipo}")
+    @Operation(summary = "Get stock movements by type")
+    @PreAuthorize("hasPermission('STOCK_READ')")
+    public ResponseEntity<ApiResponse<List<MovimentoStockResumoDTO>>> findByTipo(
+            @PathVariable String tipo) {
+        List<MovimentoStockResumoDTO> movimentos = movimentoStockService.findByTipoDTO(tipo);
+        return success(movimentos);
+    }
+
+    @GetMapping("/referencia/{referencia}")
+    @Operation(summary = "Get stock movements by reference")
+    @PreAuthorize("hasPermission('STOCK_READ')")
+    public ResponseEntity<ApiResponse<List<MovimentoStockResumoDTO>>> findByReferencia(
+            @PathVariable String referencia) {
+        List<MovimentoStockResumoDTO> movimentos = movimentoStockService.findByReferenciaDTO(referencia);
+        return success(movimentos);
+    }
+
+    @GetMapping("/resumo/empresa")
+    @Operation(summary = "Get stock movements summary by company")
+    @PreAuthorize("hasPermission('STOCK_READ')")
+    public ResponseEntity<ApiResponse<List<MovimentoStockResumoDTO>>> findResumoByEmpresa(
+            @PageableDefault(size = 20) Pageable pageable) {
+        List<MovimentoStockResumoDTO> movimentos = movimentoStockService.findResumoByEmpresaDTO(pageable);
+        return success(movimentos);
     }
 }

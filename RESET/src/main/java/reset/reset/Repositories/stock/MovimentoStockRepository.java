@@ -21,22 +21,40 @@ public interface MovimentoStockRepository extends BaseRepository<MovimentoStock,
     @Query("SELECT m FROM MovimentoStock m WHERE m.produto.id = :produtoId ORDER BY m.dataMovimento DESC")
     List<MovimentoStock> findByProdutoIdOrderByDataMovimentoDesc(@Param("produtoId") Long produtoId);
 
+    @Query("SELECT m FROM MovimentoStock m WHERE m.produto.id = :produtoId")
+    Page<MovimentoStock> findByProdutoId(@Param("produtoId") Long produtoId, Pageable pageable);
+
     @Query("SELECT m FROM MovimentoStock m WHERE m.armazem.id = :armazemId ORDER BY m.dataMovimento DESC")
     Page<MovimentoStock> findByArmazemId(@Param("armazemId") Long armazemId, Pageable pageable);
 
     @Query("SELECT m FROM MovimentoStock m WHERE m.tipo = :tipo")
     List<MovimentoStock> findByTipo(@Param("tipo") String tipo);
 
+    @Query("SELECT m FROM MovimentoStock m WHERE m.tipo = :tipo")
+    Page<MovimentoStock> findByTipoPageable(@Param("tipo") String tipo, Pageable pageable);
+
     @Query("SELECT m FROM MovimentoStock m WHERE m.referencia = :referencia")
     List<MovimentoStock> findByReferencia(@Param("referencia") String referencia);
+
+    @Query("SELECT m FROM MovimentoStock m WHERE m.referencia LIKE %:referencia%")
+    Page<MovimentoStock> findByReferenciaContaining(@Param("referencia") String referencia, Pageable pageable);
 
     @Query("SELECT m FROM MovimentoStock m WHERE m.produto.id = :produtoId AND m.dataMovimento BETWEEN :dataInicio AND :dataFim")
     List<MovimentoStock> findMovimentosByProdutoAndPeriodo(@Param("produtoId") Long produtoId,
                                                            @Param("dataInicio") LocalDateTime dataInicio,
                                                            @Param("dataFim") LocalDateTime dataFim);
 
+    @Query("SELECT m FROM MovimentoStock m WHERE m.produto.id = :produtoId AND m.dataMovimento BETWEEN :dataInicio AND :dataFim")
+    Page<MovimentoStock> findMovimentosByProdutoAndPeriodoPageable(@Param("produtoId") Long produtoId,
+                                                                   @Param("dataInicio") LocalDateTime dataInicio,
+                                                                   @Param("dataFim") LocalDateTime dataFim,
+                                                                   Pageable pageable);
+
     @Query("SELECT m FROM MovimentoStock m WHERE m.empresa.id = :empresaId")
     Page<MovimentoStock> findByEmpresaId(@Param("empresaId") Long empresaId, Pageable pageable);
+
+    @Query("SELECT m FROM MovimentoStock m WHERE m.empresa.id = :empresaId ORDER BY m.dataMovimento DESC")
+    List<MovimentoStock> findResumoByEmpresaId(@Param("empresaId") Long empresaId, Pageable pageable);
 
     @Query("SELECT SUM(m.quantidade) FROM MovimentoStock m WHERE m.produto.id = :produtoId AND m.tipo = :tipo")
     BigDecimal sumQuantidadeByProdutoAndTipo(@Param("produtoId") Long produtoId, @Param("tipo") String tipo);
@@ -53,4 +71,3 @@ public interface MovimentoStockRepository extends BaseRepository<MovimentoStock,
         return findAll(spec, filter.toPageable());
     }
 }
-

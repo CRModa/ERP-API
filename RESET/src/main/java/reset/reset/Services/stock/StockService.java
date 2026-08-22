@@ -20,13 +20,15 @@ import reset.reset.Repositories.stock.MovimentoStockRepository;
 import reset.reset.Repositories.stock.StockRepository;
 import reset.reset.Services.base.BaseServiceImpl;
 import reset.reset.dto.filter.StockFilter;
-import reset.reset.dto.projection.StockResumo;
+import reset.reset.dto.stock.StockDTO;
+import reset.reset.dto.stock.StockResumoDTO;
 import reset.reset.dto.request.restaurant.PedidoItemRequest;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 @Slf4j
@@ -73,6 +75,65 @@ public class StockService extends BaseServiceImpl<Stock, Long, StockRepository> 
         }
     }
 
+    // ==================== MÉTODOS COM RETORNO DTO ====================
+
+    public Page<StockDTO> filterDTO(StockFilter filter) {
+        Page<Stock> stocks = stockRepository.filter(filter);
+        return stocks.map(StockDTO::fromEntity);
+    }
+
+    public Page<StockDTO> findByArmazemIdDTO(Long armazemId, Pageable pageable) {
+        Page<Stock> stocks = stockRepository.findByArmazemId(armazemId, pageable);
+        return stocks.map(StockDTO::fromEntity);
+    }
+
+    public Page<StockResumoDTO> findStockResumoByEmpresaIdDTO(Long empresaId, Pageable pageable) {
+        return stockRepository.findStockResumoByEmpresaId(empresaId, pageable)
+                .map(this::toStockResumoDTO);
+    }
+
+    public List<StockDTO> findLowStockDTO(BigDecimal threshold) {
+        List<Stock> stocks = stockRepository.findWithLowStock(threshold);
+        return stocks.stream()
+                .map(StockDTO::fromEntity)
+                .collect(Collectors.toList());
+    }
+
+    public List<StockDTO> findPositiveStockDTO() {
+        List<Stock> stocks = stockRepository.findWithPositiveStock();
+        return stocks.stream()
+                .map(StockDTO::fromEntity)
+                .collect(Collectors.toList());
+    }
+
+    // ==================== CONVERSÃO PARA RESUMO DTO ====================
+
+    private StockResumoDTO toStockResumoDTO(reset.reset.dto.projection.StockResumo resumo) {
+        return StockResumoDTO.builder()
+                .produtoId(resumo.getProdutoId())
+                .produtoNome(resumo.getProdutoNome())
+                .produtoCodigo(resumo.getProdutoCodigo())
+                .armazemId(resumo.getArmazemId())
+                .armazemNome(resumo.getArmazemNome())
+                .quantidadeAtual(resumo.getQuantidadeAtual())
+                .precoVenda(resumo.getPrecoVenda())
+//                .valorTotal(resumo.getValorTotal())
+                .build();
+    }
+
+    private StockResumoDTO toStockResumoFromEntity(Stock stock) {
+        return StockResumoDTO.builder()
+                .produtoId(stock.getProduto().getId())
+                .produtoNome(stock.getProduto().getNome())
+                .produtoCodigo(stock.getProduto().getCodigo())
+                .armazemId(stock.getArmazem().getId())
+                .armazemNome(stock.getArmazem().getNome())
+                .quantidadeAtual(stock.getQuantidadeAtual())
+                .precoVenda(stock.getProduto().getPrecoVenda())
+                .valorTotal(stock.getQuantidadeAtual().multiply(stock.getProduto().getPrecoVenda()))
+                .build();
+    }
+
     // ==================== OPERAÇÕES DE STOCK ====================
 
     @Transactional
@@ -86,7 +147,6 @@ public class StockService extends BaseServiceImpl<Stock, Long, StockRepository> 
             throw new BusinessException("Quantity must be greater than zero");
         }
 
-        // Verifica se o produto é composto
         if (produto.getIsComposto() != null && produto.getIsComposto()) {
             throw new BusinessException("Cannot add stock directly to a composed product. Add stock to its components.");
         }
@@ -106,7 +166,6 @@ public class StockService extends BaseServiceImpl<Stock, Long, StockRepository> 
 
         stock = stockRepository.save(stock);
 
-        // Registrar movimento
         MovimentoStock movimento = new MovimentoStock();
         movimento.setEmpresa(produto.getEmpresa());
         movimento.setProduto(produto);
@@ -126,7 +185,6 @@ public class StockService extends BaseServiceImpl<Stock, Long, StockRepository> 
         Produto produto = produtoRepository.findById(produtoId)
                 .orElseThrow(() -> new EntityNotFoundException("Product not found"));
 
-        // Verifica se o produto é composto
         if (produto.getIsComposto() != null && produto.getIsComposto()) {
             throw new BusinessException("Cannot remove stock directly from a composed product. Remove from its components.");
         }
@@ -147,7 +205,6 @@ public class StockService extends BaseServiceImpl<Stock, Long, StockRepository> 
         stock.setQuantidadeAtual(stock.getQuantidadeAtual().subtract(quantidade));
         stock = stockRepository.save(stock);
 
-        // Registrar movimento
         MovimentoStock movimento = new MovimentoStock();
         movimento.setEmpresa(stock.getProduto().getEmpresa());
         movimento.setProduto(stock.getProduto());
@@ -175,7 +232,6 @@ public class StockService extends BaseServiceImpl<Stock, Long, StockRepository> 
         stock.setQuantidadeAtual(novaQuantidade);
         stock = stockRepository.save(stock);
 
-        // Registrar movimento
         MovimentoStock movimento = new MovimentoStock();
         movimento.setEmpresa(stock.getProduto().getEmpresa());
         movimento.setProduto(stock.getProduto());
@@ -200,10 +256,7 @@ public class StockService extends BaseServiceImpl<Stock, Long, StockRepository> 
             throw new BusinessException("Cannot transfer stock of a composed product. Transfer its components.");
         }
 
-        // Remover do armazém de origem
         removerStock(produtoId, origemArmazemId, quantidade, "Transferência: " + referencia);
-
-        // Adicionar ao armazém de destino
         return adicionarStock(produtoId, destinoArmazemId, quantidade, "Transferência: " + referencia);
     }
 
@@ -229,7 +282,6 @@ public class StockService extends BaseServiceImpl<Stock, Long, StockRepository> 
             throw new BusinessException("Product is not a composed product");
         }
 
-        // O stock de um produto composto é baseado no item com menor disponibilidade
         BigDecimal menorStock = null;
         for (ProdutoCompostoItem item : produto.getItensComposto()) {
             BigDecimal stockDisponivel = getQuantidadeTotalPorProduto(item.getProdutoFilho().getId());
@@ -259,7 +311,7 @@ public class StockService extends BaseServiceImpl<Stock, Long, StockRepository> 
         return stockRepository.findWithPositiveStock();
     }
 
-    public Page<StockResumo> findStockResumoByEmpresaId(Long empresaId, Pageable pageable) {
+    public Page<reset.reset.dto.projection.StockResumo> findStockResumoByEmpresaId(Long empresaId, Pageable pageable) {
         return stockRepository.findStockResumoByEmpresaId(empresaId, pageable);
     }
 
@@ -271,7 +323,6 @@ public class StockService extends BaseServiceImpl<Stock, Long, StockRepository> 
                     .orElseThrow(() -> new EntityNotFoundException("Produto não encontrado"));
 
             if (produto.getIsComposto() != null && produto.getIsComposto()) {
-                // Para produtos compostos, verificar cada item filho
                 for (ProdutoCompostoItem composto : produto.getItensComposto()) {
                     BigDecimal quantidadeNecessaria = composto.getQuantidade().multiply(item.getQuantidade());
                     BigDecimal stockDisponivel = getQuantidadeTotalPorProduto(composto.getProdutoFilho().getId());
@@ -284,7 +335,6 @@ public class StockService extends BaseServiceImpl<Stock, Long, StockRepository> 
                     }
                 }
             } else {
-                // Produto simples
                 BigDecimal stockDisponivel = getQuantidadeTotalPorProduto(produto.getId());
                 if (stockDisponivel.compareTo(item.getQuantidade()) < 0) {
                     throw new InsufficientStockException(
@@ -303,7 +353,6 @@ public class StockService extends BaseServiceImpl<Stock, Long, StockRepository> 
             throw new BusinessException("Lista de itens vazia");
         }
 
-        // Verificar se o armazém existe
         if (!armazemRepository.existsById(armazemId)) {
             throw new EntityNotFoundException("Armazém não encontrado com id: " + armazemId);
         }
@@ -313,14 +362,12 @@ public class StockService extends BaseServiceImpl<Stock, Long, StockRepository> 
                     .orElseThrow(() -> new EntityNotFoundException("Produto não encontrado: " + item.getItemId()));
 
             if (produto.getIsComposto() != null && produto.getIsComposto()) {
-                // Para produtos compostos, baixar cada item filho
                 for (ProdutoCompostoItem composto : produto.getItensComposto()) {
                     BigDecimal quantidadeBaixar = composto.getQuantidade().multiply(item.getQuantidade());
                     removerStock(composto.getProdutoFilho().getId(), armazemId, quantidadeBaixar,
                             "Pedido: " + referencia + " - " + produto.getNome());
                 }
             } else {
-                // Produto simples
                 removerStock(produto.getId(), armazemId, item.getQuantidade(),
                         "Pedido: " + referencia);
             }
@@ -350,7 +397,6 @@ public class StockService extends BaseServiceImpl<Stock, Long, StockRepository> 
                     .orElseThrow(() -> new EntityNotFoundException("Produto não encontrado"));
 
             if (produto.getIsComposto() != null && produto.getIsComposto()) {
-                // Soma o custo de cada item filho
                 for (ProdutoCompostoItem composto : produto.getItensComposto()) {
                     BigDecimal custoItem = composto.getProdutoFilho().getPrecoCusto()
                             .multiply(composto.getQuantidade())
@@ -375,7 +421,6 @@ public class StockService extends BaseServiceImpl<Stock, Long, StockRepository> 
                     .orElseThrow(() -> new EntityNotFoundException("Produto não encontrado"));
 
             if (produto.getIsComposto() != null && produto.getIsComposto()) {
-                // Valor do produto composto = preço base + soma dos adicionais
                 BigDecimal valorBase = produto.getPrecoVenda();
                 BigDecimal adicionais = BigDecimal.ZERO;
                 for (ProdutoCompostoItem composto : produto.getItensComposto()) {
