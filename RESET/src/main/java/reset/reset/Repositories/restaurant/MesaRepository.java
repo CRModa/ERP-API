@@ -13,7 +13,6 @@ import java.util.Optional;
 
 @Repository
 public interface MesaRepository extends BaseRepository<Mesa, Long> {
-
     Optional<Mesa> findByEmpresaIdAndNumero(Long empresaId, String numero);
 
     @Query("SELECT m FROM Mesa m WHERE m.empresa.id = :empresaId AND m.status = :status")
@@ -22,6 +21,12 @@ public interface MesaRepository extends BaseRepository<Mesa, Long> {
 
     @Query("SELECT m FROM Mesa m WHERE m.empresa.id = :empresaId AND m.ativo = true")
     Page<Mesa> findActiveByEmpresaId(@Param("empresaId") Long empresaId, Pageable pageable);
+
+    @Query("SELECT m FROM Mesa m WHERE m.empresa.id = :empresaId AND m.ativo = true")
+    List<Mesa> findByEmpresaId(@Param("empresaId") Long empresaId);
+
+    @Query("SELECT m FROM Mesa m WHERE m.empresa.id = :empresaId AND m.ativo = true")
+    Page<Mesa> findByEmpresaId(@Param("empresaId") Long empresaId, Pageable pageable);
 
     @Query("SELECT m FROM Mesa m WHERE m.empresa.id = :empresaId AND m.status = 'DISPONIVEL' AND m.ativo = true")
     List<Mesa> findMesasDisponiveis(@Param("empresaId") Long empresaId);

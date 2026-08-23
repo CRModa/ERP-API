@@ -4,6 +4,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import reset.reset.Exceptions.BusinessException;
@@ -17,13 +18,21 @@ import reset.reset.Repositories.core.EmpresaRepository;
 import reset.reset.Repositories.customer.ClienteRepository;
 import reset.reset.Repositories.product.ProdutoRepository;
 import reset.reset.Repositories.restaurant.*;
+import reset.reset.Security.UserPrincipal;
 import reset.reset.Services.base.BaseServiceImpl;
 import reset.reset.Services.stock.StockService;
+import reset.reset.dto.request.restaurant.ItemPedidoRequest;
+import reset.reset.dto.request.restaurant.PedidoRequest;
+import reset.reset.dto.restaurant.ItemPedidoDTO;
+import reset.reset.dto.restaurant.PedidoDTO;
+import reset.reset.dto.restaurant.PedidoResumoDTO;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @Slf4j
@@ -38,10 +47,7 @@ public class PedidoService extends BaseServiceImpl<Pedido, Long, PedidoRepositor
     private ProdutoRepository produtoRepository;
 
     @Autowired
-    private ComboRepository comboRepository;
-
-    @Autowired
-    private UserRepository utilizadorRepository;
+    private UserRepository userRepository;
 
     @Autowired
     private ClienteRepository clienteRepository;
@@ -60,185 +66,106 @@ public class PedidoService extends BaseServiceImpl<Pedido, Long, PedidoRepositor
         this.pedidoRepository = repository;
     }
 
-    @Override
-    protected void validateBeforeSave(Pedido pedido) {
-        validateEmpresaExists(pedido.getEmpresa().getId());
-        validateMesa(pedido.getMesa());
-        validateCliente(pedido.getCliente());
-        validateAtendente(pedido.getAtendente());
-        validateGarcom(pedido.getGarcom());
-        validateItensPedido(pedido.getItens());
-        validateTipoPedido(pedido.getTipo());
-    }
-
-    private void validateEmpresaExists(Long empresaId) {
-        if (!empresaRepository.existsById(empresaId)) {
-            throw new EntityNotFoundException("Empresa não encontrada");
+    private User getAuthenticatedUser() {
+        try {
+            UserPrincipal principal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+            return userRepository.findById(principal.getId())
+                    .orElseThrow(() -> new EntityNotFoundException("Usuário não encontrado"));
+        } catch (Exception e) {
+            throw new BusinessException("Usuário não autenticado");
         }
     }
 
-    private void validateMesa(Mesa mesa) {
-        if (mesa != null && mesa.getId() != null) {
-            Mesa mesaExistente = mesaRepository.findById(mesa.getId())
-                    .orElseThrow(() -> new EntityNotFoundException("Mesa não encontrada"));
-
-            if (mesaExistente.getStatus() == Mesa.StatusMesa.OCUPADA) {
-                throw new BusinessException("Mesa já está ocupada");
-            }
-        }
+    private Long getCurrentEmpresaId() {
+        return getAuthenticatedUser().getEmpresa().getId();
     }
 
-    private void validateCliente(Cliente cliente) {
-        if (cliente != null && cliente.getId() != null) {
-            if (!clienteRepository.existsById(cliente.getId())) {
-                throw new EntityNotFoundException("Cliente não encontrado");
-            }
-        }
-    }
+    // ==================== CRUD COM DTOs ====================
 
-    private void validateAtendente(User atendente) {
-        if (atendente != null && atendente.getId() != null) {
-            if (!utilizadorRepository.existsById(atendente.getId())) {
-                throw new EntityNotFoundException("Atendente não encontrado");
-            }
-        }
-    }
+    @Transactional
+    public PedidoDTO criarPedido(PedidoRequest request) {
+        User currentUser = getAuthenticatedUser();
 
-    private void validateGarcom(User garcom) {
-        if (garcom != null && garcom.getId() != null) {
-            if (!utilizadorRepository.existsById(garcom.getId())) {
-                throw new EntityNotFoundException("Garçom não encontrado");
-            }
-        }
-    }
-
-    private void validateItensPedido(List<ItemPedido> itens) {
-        if (itens == null || itens.isEmpty()) {
+        // Validar itens
+        if (request.getItens() == null || request.getItens().isEmpty()) {
             throw new BusinessException("Pedido deve ter pelo menos um item");
         }
 
-        for (ItemPedido item : itens) {
-            if (item.getQuantidade() == null || item.getQuantidade().compareTo(BigDecimal.ZERO) <= 0) {
-                throw new BusinessException("Quantidade deve ser maior que zero");
-            }
+        // Criar o pedido
+        Pedido pedido = new Pedido();
+        pedido.setEmpresa(currentUser.getEmpresa());
+        pedido.setAtendente(currentUser);
+        pedido.setGarcom(currentUser);
+        pedido.setTipo(Pedido.TipoPedido.valueOf(request.getTipo()));
+        pedido.setObservacao(request.getObservacao());
+        pedido.setStatus(Pedido.StatusPedido.PENDENTE);
+        pedido.setNumero(gerarNumeroPedido(getCurrentEmpresaId()));
+        pedido.setDataPedido(LocalDateTime.now());
 
-            if (item.getProduto() != null && item.getProduto().getId() != null) {
-                Produto produto = produtoRepository.findById(item.getProduto().getId())
-                        .orElseThrow(() -> new EntityNotFoundException("Produto não encontrado"));
+        // Buscar mesa se informada
+        if (request.getMesaId() != null) {
+            Mesa mesa = mesaRepository.findById(request.getMesaId())
+                    .orElseThrow(() -> new EntityNotFoundException("Mesa não encontrada: " + request.getMesaId()));
 
-                if (!produto.getDisponivel()) {
-                    throw new BusinessException("Produto " + produto.getNome() + " não está disponível");
-                }
-
-                item.setPrecoUnitario(produto.getPrecoVenda());
-
-                // Verificar stock para produtos não compostos
-                if (!produto.getIsComposto()) {
-                    BigDecimal stockDisponivel = stockService.getQuantidadeTotalPorProduto(produto.getId());
-                    if (stockDisponivel.compareTo(item.getQuantidade()) < 0) {
-                        throw new BusinessException("Stock insuficiente para " + produto.getNome() +
-                                " (disponível: " + stockDisponivel + ")");
-                    }
-                }
-            }
-
-            if (item.getCombo() != null && item.getCombo().getId() != null) {
-                if (!comboRepository.existsById(item.getCombo().getId())) {
-                    throw new EntityNotFoundException("Combo não encontrado");
-                }
-            }
-
-            validateTipoPedidoItem(item);
-        }
-    }
-
-    private void validateTipoPedido(Pedido.TipoPedido tipo) {
-        if (tipo == null) {
-            throw new BusinessException("Tipo de pedido é obrigatório");
-        }
-    }
-
-    private void validateTipoPedidoItem(ItemPedido item) {
-        if (item.getProduto() == null && item.getCombo() == null) {
-            throw new BusinessException("Item deve ter um produto ou um combo");
-        }
-    }
-
-    @Override
-    @Transactional
-    public Pedido save(Pedido pedido) {
-        // Gerar número do pedido
-        if (pedido.getNumero() == null) {
-            pedido.setNumero(gerarNumeroPedido(pedido.getEmpresa().getId()));
-        }
-
-        // Definir data do pedido
-        if (pedido.getDataPedido() == null) {
-            pedido.setDataPedido(LocalDateTime.now());
-        }
-
-        // Calcular totais
-        calcularTotaisPedido(pedido);
-
-        Pedido saved = super.save(pedido);
-
-        // Atualizar status da mesa
-        if (saved.getMesa() != null && saved.getMesa().getId() != null) {
-            Mesa mesa = mesaRepository.findById(saved.getMesa().getId()).orElse(null);
-            if (mesa != null && mesa.getStatus() == Mesa.StatusMesa.DISPONIVEL) {
+            if (mesa.getStatus() == Mesa.StatusMesa.DISPONIVEL) {
                 mesa.setStatus(Mesa.StatusMesa.OCUPADA);
                 mesaRepository.save(mesa);
             }
+            pedido.setMesa(mesa);
         }
 
-        // Registrar log
-        registrarLog(saved, "CRIACAO", null, "Pedido criado");
+        // Buscar cliente se informado
+        if (request.getClienteId() != null) {
+            Cliente cliente = clienteRepository.findById(request.getClienteId())
+                    .orElseThrow(() -> new EntityNotFoundException("Cliente não encontrado"));
+            pedido.setCliente(cliente);
+        }
 
-        return saved;
-    }
+        // Adicionar itens
+        List<ItemPedido> itens = new ArrayList<>();
+        for (ItemPedidoRequest itemRequest : request.getItens()) {
+            Produto produto = produtoRepository.findById(itemRequest.getProdutoId())
+                    .orElseThrow(() -> new EntityNotFoundException("Produto não encontrado: " + itemRequest.getProdutoId()));
 
-    private String gerarNumeroPedido(Long empresaId) {
-        String prefixo = "PED";
-        String data = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
-        Long count = pedidoRepository.countByEmpresaAndPeriodo(empresaId,
-                LocalDateTime.now().withHour(0).withMinute(0).withSecond(0),
-                LocalDateTime.now()) + 1;
-        return prefixo + data + String.format("%04d", count);
-    }
-
-    private void calcularTotaisPedido(Pedido pedido) {
-        BigDecimal subtotal = BigDecimal.ZERO;
-
-        for (ItemPedido item : pedido.getItens()) {
-            BigDecimal preco = item.getPrecoUnitario() != null ? item.getPrecoUnitario() : BigDecimal.ZERO;
-            BigDecimal quantidade = item.getQuantidade();
-            BigDecimal subtotalItem = preco.multiply(quantidade);
-
-            // Aplicar desconto se houver
-            if (item.getDescontoValor() != null) {
-                subtotalItem = subtotalItem.subtract(item.getDescontoValor());
+            if (!produto.getDisponivel()) {
+                throw new BusinessException("Produto " + produto.getNome() + " não está disponível");
             }
 
-            item.setSubtotal(subtotalItem);
-            subtotal = subtotal.add(subtotalItem);
+            // Verificar estoque
+            if (!produto.getIsComposto()) {
+                BigDecimal stockDisponivel = stockService.getQuantidadeTotalPorProduto(produto.getId());
+                if (stockDisponivel.compareTo(itemRequest.getQuantidade()) < 0) {
+                    throw new BusinessException("Stock insuficiente para " + produto.getNome() +
+                            " (disponível: " + stockDisponivel + ")");
+                }
+            }
+
+            ItemPedido item = new ItemPedido();
+            item.setPedido(pedido);
+            item.setProduto(produto);
+            item.setQuantidade(itemRequest.getQuantidade() != null ? itemRequest.getQuantidade() : BigDecimal.ONE);
+            item.setPrecoUnitario(
+                    itemRequest.getPrecoUnitario() != null ? itemRequest.getPrecoUnitario() : produto.getPrecoVenda()
+            );
+            item.setObservacao(itemRequest.getObservacao());
+            item.setStatus(ItemPedido.StatusItemPedido.PENDENTE);
+            item.calcularSubtotal();
+            itens.add(item);
         }
 
-        pedido.setSubtotal(subtotal);
+        pedido.setItens(itens);
+        pedido.recalcularTotais();
 
-        // Aplicar desconto geral
-        BigDecimal desconto = pedido.getDesconto() != null ? pedido.getDesconto() : BigDecimal.ZERO;
-        BigDecimal totalComDesconto = subtotal.subtract(desconto);
+        Pedido saved = super.save(pedido);
 
-        // Aplicar taxa de serviço (10% padrão)
-        BigDecimal taxaServico = pedido.getTaxaServico() != null ? pedido.getTaxaServico() : totalComDesconto.multiply(new BigDecimal("0.10"));
-        pedido.setTaxaServico(taxaServico);
+        // Registrar log
+        registrarLog(saved, "CRIACAO", null, "Pedido criado com " + saved.getItens().size() + " itens");
 
-        BigDecimal total = totalComDesconto.add(taxaServico);
-        pedido.setTotal(total);
+        return PedidoDTO.fromEntity(saved);
     }
 
     @Transactional
-    public Pedido atualizarStatus(Long pedidoId, Pedido.StatusPedido novoStatus) {
+    public PedidoDTO atualizarStatus(Long pedidoId, Pedido.StatusPedido novoStatus) {
         Pedido pedido = findByIdOrThrow(pedidoId);
 
         String statusAnterior = pedido.getStatus().toString();
@@ -246,8 +173,6 @@ public class PedidoService extends BaseServiceImpl<Pedido, Long, PedidoRepositor
 
         if (novoStatus == Pedido.StatusPedido.PRONTO) {
             pedido.setDataEntrega(LocalDateTime.now());
-
-            // Calcular tempo de espera
             if (pedido.getDataPedido() != null) {
                 long minutos = java.time.Duration.between(pedido.getDataPedido(), LocalDateTime.now()).toMinutes();
                 pedido.setTempoEspera((int) minutos);
@@ -259,9 +184,18 @@ public class PedidoService extends BaseServiceImpl<Pedido, Long, PedidoRepositor
             // Liberar mesa
             if (pedido.getMesa() != null) {
                 Mesa mesa = mesaRepository.findById(pedido.getMesa().getId()).orElse(null);
-                if (mesa != null) {
-                    mesa.setStatus(Mesa.StatusMesa.DISPONIVEL);
-                    mesaRepository.save(mesa);
+                if (mesa != null && mesa.getStatus() == Mesa.StatusMesa.OCUPADA) {
+                    List<Pedido> pedidosAtivos = pedidoRepository.findPedidosAtivosByMesaId(mesa.getId());
+                    boolean hasActiveOrders = pedidosAtivos.stream()
+                            .anyMatch(p -> !p.getId().equals(pedidoId) &&
+                                    (p.getStatus() == Pedido.StatusPedido.PENDENTE ||
+                                            p.getStatus() == Pedido.StatusPedido.EM_PREPARO ||
+                                            p.getStatus() == Pedido.StatusPedido.PRONTO));
+
+                    if (!hasActiveOrders) {
+                        mesa.setStatus(Mesa.StatusMesa.DISPONIVEL);
+                        mesaRepository.save(mesa);
+                    }
                 }
             }
         }
@@ -269,67 +203,110 @@ public class PedidoService extends BaseServiceImpl<Pedido, Long, PedidoRepositor
         Pedido updated = pedidoRepository.save(pedido);
         registrarLog(updated, "MUDANCA_STATUS", statusAnterior, "Status alterado para: " + novoStatus);
 
-        return updated;
+        return PedidoDTO.fromEntity(updated);
     }
 
     @Transactional
-    public Pedido adicionarItem(Long pedidoId, ItemPedido novoItem) {
+    public PedidoDTO adicionarItem(Long pedidoId, ItemPedidoRequest request) {
         Pedido pedido = findByIdOrThrow(pedidoId);
 
-        if (pedido.getStatus() == Pedido.StatusPedido.FECHADO ||
-                pedido.getStatus() == Pedido.StatusPedido.CANCELADO) {
-            throw new BusinessException("Não é possível adicionar itens a um pedido finalizado ou cancelado");
+        if (!pedido.isAceitaItens()) {
+            throw new BusinessException("Não é possível adicionar itens a um pedido " + pedido.getStatus());
         }
 
-        // Validar item
-        if (novoItem.getProduto() != null && novoItem.getProduto().getId() != null) {
-            Produto produto = produtoRepository.findById(novoItem.getProduto().getId())
-                    .orElseThrow(() -> new EntityNotFoundException("Produto não encontrado"));
-            novoItem.setPrecoUnitario(produto.getPrecoVenda());
+        Produto produto = produtoRepository.findById(request.getProdutoId())
+                .orElseThrow(() -> new EntityNotFoundException("Produto não encontrado"));
+
+        if (!produto.getDisponivel()) {
+            throw new BusinessException("Produto " + produto.getNome() + " não está disponível");
         }
 
-        novoItem.setPedido(pedido);
-        novoItem.setStatus(ItemPedido.StatusItemPedido.PENDENTE);
-
-        // Calcular subtotal do item
-        BigDecimal preco = novoItem.getPrecoUnitario() != null ? novoItem.getPrecoUnitario() : BigDecimal.ZERO;
-        BigDecimal quantidade = novoItem.getQuantidade();
-        BigDecimal subtotalItem = preco.multiply(quantidade);
-
-        if (novoItem.getDescontoValor() != null) {
-            subtotalItem = subtotalItem.subtract(novoItem.getDescontoValor());
+        if (!produto.getIsComposto()) {
+            BigDecimal stockDisponivel = stockService.getQuantidadeTotalPorProduto(produto.getId());
+            if (stockDisponivel.compareTo(request.getQuantidade()) < 0) {
+                throw new BusinessException("Stock insuficiente para " + produto.getNome() +
+                        " (disponível: " + stockDisponivel + ")");
+            }
         }
-        novoItem.setSubtotal(subtotalItem);
 
-        pedido.getItens().add(novoItem);
+        ItemPedido item = new ItemPedido();
+        item.setPedido(pedido);
+        item.setProduto(produto);
+        item.setQuantidade(request.getQuantidade() != null ? request.getQuantidade() : BigDecimal.ONE);
+        item.setPrecoUnitario(
+                request.getPrecoUnitario() != null ? request.getPrecoUnitario() : produto.getPrecoVenda()
+        );
+        item.setObservacao(request.getObservacao());
+        item.setStatus(ItemPedido.StatusItemPedido.PENDENTE);
+        item.calcularSubtotal();
 
-        // Recalcular totais
-        calcularTotaisPedido(pedido);
+        pedido.adicionarItem(item);
 
         Pedido updated = pedidoRepository.save(pedido);
-        registrarLog(updated, "ADICAO_ITEM", null, "Item adicionado: " + novoItem.getProduto().getNome());
+        registrarLog(updated, "ADICAO_ITEM", null, "Item adicionado: " + produto.getNome());
 
-        return updated;
+        return PedidoDTO.fromEntity(updated);
     }
 
     @Transactional
-    public Pedido removerItem(Long pedidoId, Long itemId) {
+    public PedidoDTO removerItem(Long pedidoId, Long itemId) {
         Pedido pedido = findByIdOrThrow(pedidoId);
 
-        if (pedido.getStatus() == Pedido.StatusPedido.FECHADO ||
-                pedido.getStatus() == Pedido.StatusPedido.CANCELADO) {
-            throw new BusinessException("Não é possível remover itens de um pedido finalizado ou cancelado");
+        if (!pedido.isAceitaItens()) {
+            throw new BusinessException("Não é possível remover itens de um pedido " + pedido.getStatus());
         }
 
-        pedido.getItens().removeIf(item -> item.getId().equals(itemId));
+        ItemPedido item = pedido.getItens().stream()
+                .filter(i -> i.getId().equals(itemId))
+                .findFirst()
+                .orElseThrow(() -> new EntityNotFoundException("Item não encontrado"));
 
-        // Recalcular totais
-        calcularTotaisPedido(pedido);
+        String nomeProduto = item.getProduto() != null ? item.getProduto().getNome() : "Item desconhecido";
 
+        pedido.removerItem(itemId);
         Pedido updated = pedidoRepository.save(pedido);
-        registrarLog(updated, "REMOCAO_ITEM", null, "Item removido ID: " + itemId);
+        registrarLog(updated, "REMOCAO_ITEM", null, "Item removido: " + nomeProduto);
 
-        return updated;
+        return PedidoDTO.fromEntity(updated);
+    }
+
+    // ==================== CONSULTAS COM DTOs ====================
+
+    public PedidoDTO findPedidoDTOById(Long id) {
+        Pedido pedido = findByIdOrThrow(id);
+        return PedidoDTO.fromEntity(pedido);
+    }
+
+    public Page<PedidoResumoDTO> findPedidosResumoByEmpresa(Pageable pageable) {
+        Long empresaId = getCurrentEmpresaId();
+        Page<Pedido> pedidos = pedidoRepository.findByEmpresaId(empresaId, pageable);
+        return pedidos.map(PedidoResumoDTO::fromEntity);
+    }
+
+    public List<PedidoDTO> findPedidosAtivosByMesaDTO(Long mesaId) {
+        List<Pedido> pedidos = pedidoRepository.findPedidosAtivosByMesaId(mesaId);
+        return pedidos.stream()
+                .map(PedidoDTO::fromEntity)
+                .collect(Collectors.toList());
+    }
+
+    public List<PedidoDTO> findPedidosEmAndamento() {
+        Long empresaId = getCurrentEmpresaId();
+        List<Pedido> pedidos = pedidoRepository.findPedidosEmAndamento(empresaId);
+        return pedidos.stream()
+                .map(PedidoDTO::fromEntity)
+                .collect(Collectors.toList());
+    }
+
+    // ==================== UTILITÁRIOS ====================
+
+    private String gerarNumeroPedido(Long empresaId) {
+        String prefixo = "PED";
+        String data = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
+        Long count = pedidoRepository.countByEmpresaAndPeriodo(empresaId,
+                LocalDateTime.now().withHour(0).withMinute(0).withSecond(0),
+                LocalDateTime.now()) + 1;
+        return prefixo + data + String.format("%04d", count);
     }
 
     private void registrarLog(Pedido pedido, String acao, String statusAnterior, String descricao) {
@@ -339,27 +316,21 @@ public class PedidoService extends BaseServiceImpl<Pedido, Long, PedidoRepositor
         log.setStatusAnterior(statusAnterior);
         log.setStatusNovo(pedido.getStatus().toString());
         log.setDescricao(descricao);
+        log.setUtilizador(getAuthenticatedUser());
         pedidoLogRepository.save(log);
     }
 
-    public List<Pedido> findPedidosEmAndamento(Long empresaId) {
-        return pedidoRepository.findPedidosEmAndamento(empresaId);
+    // Métodos legado (compatibilidade)
+    public Pedido findPedidoById(Long id) {
+        return findByIdOrThrow(id);
     }
 
     public List<Pedido> findPedidosAtivosByMesa(Long mesaId) {
         return pedidoRepository.findPedidosAtivosByMesaId(mesaId);
     }
 
-    public Page<Pedido> findByEmpresaId(Long empresaId, Pageable pageable) {
+    public Page<Pedido> findByEmpresaId(Pageable pageable) {
+        Long empresaId = getCurrentEmpresaId();
         return pedidoRepository.findByEmpresaId(empresaId, pageable);
-    }
-
-    public BigDecimal sumTotalByEmpresaAndPeriodo(Long empresaId, LocalDateTime inicio, LocalDateTime fim) {
-        BigDecimal sum = pedidoRepository.sumTotalByEmpresaAndPeriodo(empresaId, inicio, fim);
-        return sum != null ? sum : BigDecimal.ZERO;
-    }
-
-    public Long countByEmpresaAndPeriodo(Long empresaId, LocalDateTime inicio, LocalDateTime fim) {
-        return pedidoRepository.countByEmpresaAndPeriodo(empresaId, inicio, fim);
     }
 }

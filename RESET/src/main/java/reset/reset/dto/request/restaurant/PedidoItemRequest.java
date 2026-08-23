@@ -7,7 +7,6 @@ import reset.reset.Models.product.Desconto;
 import reset.reset.Models.product.Iva;
 import reset.reset.Models.product.Produto;
 import reset.reset.Models.restaurant.Combo;
-import reset.reset.Models.restaurant.ItemCardapio;
 import reset.reset.Models.restaurant.ItemPedido;
 
 import java.math.BigDecimal;

@@ -387,18 +387,18 @@ public class ProdutoService extends BaseServiceImpl<Produto, Long, ProdutoReposi
 
     // ==================== MÉTODOS PARA RESTAURANTE ====================
 
+    // Services/product/ProdutoService.java - Métodos adicionais
+
+    @Transactional
+    public Produto toggleDisponibilidade(Long id) {
+        Produto produto = findByIdOrThrow(id);
+        produto.setDisponivel(!produto.getDisponivel());
+        return produtoRepository.save(produto);
+    }
+
     public List<ProdutoRestauranteDTO> findProdutosRestaurante() {
         Long empresaId = getAuthenticatedUser().getEmpresa().getId();
         List<Produto> produtos = produtoRepository.findByEmpresaIdAndCategoriaVisivelRestaurante(empresaId);
-        return produtos.stream()
-                .filter(Produto::getDisponivel)
-                .filter(Produto::getAtivo)
-                .map(this::toRestauranteDTO)
-                .collect(Collectors.toList());
-    }
-
-    public List<ProdutoRestauranteDTO> findProdutosByCategoriaRestaurante(Long categoriaId) {
-        List<Produto> produtos = produtoRepository.findByCategoriaIdAndDisponivelTrue(categoriaId);
         return produtos.stream()
                 .filter(Produto::getAtivo)
                 .filter(Produto::getDisponivel)
@@ -416,20 +416,29 @@ public class ProdutoService extends BaseServiceImpl<Produto, Long, ProdutoReposi
                 .collect(Collectors.toList());
     }
 
-    public ProdutoRestauranteDTO findProdutoRestauranteById(Long id) {
-        Produto produto = findByIdOrThrow(id);
-        if (!produto.getAtivo() || !produto.getDisponivel()) {
-            throw new BusinessException("Product is not available");
-        }
-        return toRestauranteDTO(produto);
-    }
-
     public List<CategoriaRestauranteDTO> findCategoriasRestaurante() {
         Long empresaId = getAuthenticatedUser().getEmpresa().getId();
         List<CategoriaProduto> categorias = categoriaRepository.findByEmpresaIdAndVisivelRestauranteTrue(empresaId);
         return categorias.stream()
                 .map(this::toCategoriaRestauranteDTO)
                 .collect(Collectors.toList());
+    }
+
+    public List<ProdutoRestauranteDTO> findProdutosByCategoriaRestaurante(Long categoriaId) {
+        List<Produto> produtos = produtoRepository.findByCategoriaIdAndDisponivelTrue(categoriaId);
+        return produtos.stream()
+                .filter(Produto::getAtivo)
+                .filter(Produto::getDisponivel)
+                .map(this::toRestauranteDTO)
+                .collect(Collectors.toList());
+    }
+
+    public ProdutoRestauranteDTO findProdutoRestauranteById(Long id) {
+        Produto produto = findByIdOrThrow(id);
+        if (!produto.getAtivo() || !produto.getDisponivel()) {
+            throw new BusinessException("Product is not available");
+        }
+        return toRestauranteDTO(produto);
     }
 
     // ==================== MÉTODOS DE CONVERSÃO ====================
@@ -573,15 +582,6 @@ public class ProdutoService extends BaseServiceImpl<Produto, Long, ProdutoReposi
         validatePrecoCusto(novoPreco);
         produto.setPrecoCusto(novoPreco);
         return produtoRepository.save(produto);
-    }
-
-    @Transactional
-    public Produto toggleDisponibilidade(Long id) {
-        Produto produto = findByIdOrThrow(id);
-        produto.setDisponivel(!produto.getDisponivel());
-        Produto updated = produtoRepository.save(produto);
-        log.info("Produto {} disponibilidade alterada para: {}", updated.getNome(), updated.getDisponivel());
-        return updated;
     }
 
     public List<Produto> findActiveByEmpresaIdOrderByNome() {

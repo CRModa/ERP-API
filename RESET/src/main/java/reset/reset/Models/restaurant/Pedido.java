@@ -26,23 +26,23 @@ public class Pedido {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "empresa_id", nullable = false)
     private Empresa empresa;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "mesa_id")
     private Mesa mesa;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "cliente_id")
     private Cliente cliente;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "atendente_id")
     private User atendente;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "garcom_id")
     private User garcom;
 
@@ -58,16 +58,16 @@ public class Pedido {
     private StatusPedido status = StatusPedido.PENDENTE;
 
     @Column(name = "subtotal", precision = 15, scale = 2)
-    private BigDecimal subtotal;
+    private BigDecimal subtotal = BigDecimal.ZERO;
 
     @Column(name = "desconto", precision = 15, scale = 2)
-    private BigDecimal desconto;
+    private BigDecimal desconto = BigDecimal.ZERO;
 
     @Column(name = "taxa_servico", precision = 15, scale = 2)
-    private BigDecimal taxaServico;
+    private BigDecimal taxaServico = BigDecimal.ZERO;
 
     @Column(name = "total", precision = 15, scale = 2)
-    private BigDecimal total;
+    private BigDecimal total = BigDecimal.ZERO;
 
     @Column(name = "observacao", columnDefinition = "TEXT")
     private String observacao;
@@ -95,21 +95,52 @@ public class Pedido {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
-    @OneToMany(mappedBy = "pedido", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @OneToMany(mappedBy = "pedido", cascade = CascadeType.ALL, fetch = FetchType.LAZY, orphanRemoval = true)
     private List<ItemPedido> itens = new ArrayList<>();
 
     public enum TipoPedido {
-        MESA,
-        DELIVERY,
-        TAKEAWAY
+        MESA, DELIVERY, TAKEAWAY
     }
 
     public enum StatusPedido {
-        PENDENTE,
-        EM_PREPARO,
-        PRONTO,
-        ENTREGUE,
-        CANCELADO,
-        FECHADO
+        PENDENTE, EM_PREPARO, PRONTO, ENTREGUE, CANCELADO, FECHADO
+    }
+
+    // Métodos utilitários
+    public void adicionarItem(ItemPedido item) {
+        item.setPedido(this);
+        this.itens.add(item);
+        this.recalcularTotais();
+    }
+
+    public void removerItem(Long itemId) {
+        this.itens.removeIf(item -> item.getId().equals(itemId));
+        this.recalcularTotais();
+    }
+
+    public void recalcularTotais() {
+        BigDecimal subtotalCalculado = this.itens.stream()
+                .map(ItemPedido::getSubtotal)
+                .filter(s -> s != null)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        this.subtotal = subtotalCalculado;
+
+        BigDecimal totalComDesconto = this.subtotal.subtract(
+                this.desconto != null ? this.desconto : BigDecimal.ZERO
+        );
+
+        // Taxa de serviço (10% para pedidos de mesa)
+        if (this.tipo == TipoPedido.MESA) {
+            this.taxaServico = totalComDesconto.multiply(new BigDecimal("0.10"));
+            this.total = totalComDesconto.add(this.taxaServico);
+        } else {
+            this.taxaServico = BigDecimal.ZERO;
+            this.total = totalComDesconto;
+        }
+    }
+
+    public boolean isAceitaItens() {
+        return this.status == StatusPedido.PENDENTE || this.status == StatusPedido.EM_PREPARO;
     }
 }

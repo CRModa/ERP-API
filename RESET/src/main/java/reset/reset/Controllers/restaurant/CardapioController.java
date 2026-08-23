@@ -19,13 +19,11 @@ import java.util.List;
 @RequestMapping("/restaurante/cardapio")
 @RequiredArgsConstructor
 @Slf4j
-@Tag(name = "Restaurante - Cardápio", description = "Gerenciamento do cardápio do restaurante")
+@Tag(name = "Restaurante - Cardápio", description = "Gerenciamento do cardápio")
 @PreAuthorize("hasAnyRole('ADMIN', 'GERENTE', 'GARCOM')")
 public class CardapioController extends BaseController {
 
     private final ProdutoService produtoService;
-
-    // ========== CATEGORIAS ==========
 
     @GetMapping("/categorias")
     @Operation(summary = "Listar categorias do cardápio")
@@ -35,23 +33,12 @@ public class CardapioController extends BaseController {
         return success(categorias);
     }
 
-    // ========== ITENS ==========
-
     @GetMapping
-    @Operation(summary = "Listar todos os itens do cardápio")
+    @Operation(summary = "Listar itens do cardápio")
     @PreAuthorize("hasPermission('CARDAPIO_READ')")
     public ResponseEntity<ApiResponse<List<ProdutoRestauranteDTO>>> listarCardapio() {
         List<ProdutoRestauranteDTO> cardapio = produtoService.findProdutosRestaurante();
         return success(cardapio);
-    }
-
-    @GetMapping("/categoria/{categoriaId}")
-    @Operation(summary = "Listar itens por categoria")
-    @PreAuthorize("hasPermission('CARDAPIO_READ')")
-    public ResponseEntity<ApiResponse<List<ProdutoRestauranteDTO>>> listarPorCategoria(
-            @PathVariable Long categoriaId) {
-        List<ProdutoRestauranteDTO> itens = produtoService.findProdutosByCategoriaRestaurante(categoriaId);
-        return success(itens);
     }
 
     @GetMapping("/destaques")

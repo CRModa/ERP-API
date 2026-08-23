@@ -21,27 +21,23 @@ public class ItemPedido {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "pedido_id", nullable = false)
     private Pedido pedido;
 
-    @ManyToOne
-    @JoinColumn(name = "item_id", nullable = false)
-    private ItemCardapio item;
-
-    @ManyToOne
-    @JoinColumn(name = "produto_id")
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "produto_id", nullable = false)
     private Produto produto;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "combo_id")
     private Combo combo;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "desconto_id")
     private Desconto desconto;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "iva_id")
     private Iva iva;
 
@@ -52,7 +48,7 @@ public class ItemPedido {
     private BigDecimal precoUnitario;
 
     @Column(name = "desconto_valor", precision = 15, scale = 2)
-    private BigDecimal descontoValor;
+    private BigDecimal descontoValor = BigDecimal.ZERO;
 
     @Column(name = "subtotal", precision = 15, scale = 2)
     private BigDecimal subtotal;
@@ -68,10 +64,19 @@ public class ItemPedido {
     private StatusItemPedido status = StatusItemPedido.PENDENTE;
 
     public enum StatusItemPedido {
-        PENDENTE,
-        EM_PREPARO,
-        PRONTO,
-        ENTREGUE,
-        CANCELADO
+        PENDENTE, EM_PREPARO, PRONTO, ENTREGUE, CANCELADO
+    }
+
+    public void calcularSubtotal() {
+        BigDecimal precoBase = this.precoUnitario != null ? this.precoUnitario : BigDecimal.ZERO;
+        BigDecimal qtd = this.quantidade != null ? this.quantidade : BigDecimal.ONE;
+
+        BigDecimal subtotalItem = precoBase.multiply(qtd);
+
+        if (this.descontoValor != null && this.descontoValor.compareTo(BigDecimal.ZERO) > 0) {
+            subtotalItem = subtotalItem.subtract(this.descontoValor);
+        }
+
+        this.subtotal = subtotalItem;
     }
 }

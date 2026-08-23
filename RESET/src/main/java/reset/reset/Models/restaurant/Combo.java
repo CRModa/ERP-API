@@ -6,6 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
 import reset.reset.Models.core.Empresa;
+import reset.reset.Models.product.Produto;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -23,7 +24,7 @@ public class Combo {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "empresa_id", nullable = false)
     private Empresa empresa;
 
@@ -37,7 +38,7 @@ public class Combo {
     private BigDecimal preco;
 
     @Column(name = "desconto", precision = 15, scale = 2)
-    private BigDecimal desconto;
+    private BigDecimal desconto = BigDecimal.ZERO;
 
     @Column(name = "ativo", columnDefinition = "BOOLEAN DEFAULT TRUE")
     private Boolean ativo = true;
@@ -46,6 +47,34 @@ public class Combo {
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
-    @OneToMany(mappedBy = "combo", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @OneToMany(mappedBy = "combo", cascade = CascadeType.ALL, fetch = FetchType.LAZY, orphanRemoval = true)
     private List<ItemCombo> itens = new ArrayList<>();
+
+    // ========== MÉTODOS DE UTILIDADE ==========
+
+    public BigDecimal calcularPrecoTotal() {
+        if (this.itens == null || this.itens.isEmpty()) {
+            return this.preco != null ? this.preco : BigDecimal.ZERO;
+        }
+
+        BigDecimal totalItens = this.itens.stream()
+                .map(item -> {
+                    Produto produto = item.getProduto();
+                    if (produto != null && produto.getPrecoVenda() != null) {
+                        return produto.getPrecoVenda().multiply(
+                                item.getQuantidade() != null ? BigDecimal.valueOf(item.getQuantidade()) : BigDecimal.ONE
+                        );
+                    }
+                    return BigDecimal.ZERO;
+                })
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        // Aplicar desconto do combo
+        BigDecimal descontoValor = this.desconto != null ? this.desconto : BigDecimal.ZERO;
+        return totalItens.subtract(descontoValor);
+    }
+
+    public boolean hasItens() {
+        return this.itens != null && !this.itens.isEmpty();
+    }
 }

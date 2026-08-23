@@ -45,4 +45,7 @@ public interface PedidoRepository extends BaseRepository<Pedido, Long> {
 
     @Query("SELECT p FROM Pedido p WHERE p.cliente.id = :clienteId ORDER BY p.dataPedido DESC")
     Page<Pedido> findByClienteId(@Param("clienteId") Long clienteId, Pageable pageable);
+
+    @Query("SELECT COUNT(p) FROM Pedido p WHERE p.mesa.id = :mesaId AND p.status IN ('PENDENTE', 'EM_PREPARO', 'PRONTO')")
+    Integer countPedidosAtivosByMesaId(@Param("mesaId") Long mesaId);
 }

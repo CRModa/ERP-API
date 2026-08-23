@@ -24,10 +24,6 @@ public class ItemCombo {
     private Combo combo;
 
     @ManyToOne
-    @JoinColumn(name = "item_id", nullable = false)
-    private ItemCardapio item;
-
-    @ManyToOne
     @JoinColumn(name = "produto_id")
     private Produto produto;
 
