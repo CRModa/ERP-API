@@ -77,5 +77,14 @@ public interface StockRepository extends BaseRepository<Stock, Long> {
 
         return findAll(spec, filter.toPageable());
     }
+
+    @Query("SELECT s FROM Stock s WHERE s.produto.id IN :produtoIds")
+    List<Stock> findByProdutoIds(@Param("produtoIds") List<Long> produtoIds);
+
+    @Query("SELECT s FROM Stock s WHERE s.produto.id = :produtoId AND s.quantidadeAtual > 0 ORDER BY s.quantidadeAtual DESC")
+    List<Stock> findStockDisponivelByProdutoId(@Param("produtoId") Long produtoId);
+
+    @Query("SELECT SUM(s.quantidadeAtual) FROM Stock s WHERE s.produto.id = :produtoId")
+    BigDecimal sumQuantidadeByProdutoId(@Param("produtoId") Long produtoId);
 }
 

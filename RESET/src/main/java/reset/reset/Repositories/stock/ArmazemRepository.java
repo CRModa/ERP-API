@@ -24,4 +24,13 @@ public interface ArmazemRepository extends BaseRepository<Armazem, Long> {
     List<Armazem> findAllByEmpresaIdOrderByNome(@Param("empresaId") Long empresaId);
 
    Optional<Armazem> findFirstByEmpresa(Empresa empresa);
+
+    @Query("SELECT a FROM Armazem a WHERE a.empresa.id = :empresaId AND a.ativo = true")
+    List<Armazem> findByEmpresaId(@Param("empresaId") Long empresaId);
+
+    @Query("SELECT a FROM Armazem a WHERE a.empresa.id = :empresaId AND a.ativo = true ORDER BY a.id ASC")
+    Optional<Armazem> findFirstByEmpresa(@Param("empresaId") Long empresaId);
+
+    @Query("SELECT a FROM Armazem a WHERE a.empresa.id = :empresaId AND a.ativo = true AND a.id = :armazemId")
+    Optional<Armazem> findByEmpresaIdAndId(@Param("empresaId") Long empresaId, @Param("armazemId") Long armazemId);
 }

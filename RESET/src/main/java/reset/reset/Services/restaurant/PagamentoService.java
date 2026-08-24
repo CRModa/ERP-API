@@ -216,7 +216,6 @@ public class PagamentoService {
 
     private void baixarEstoquePedido(Pedido pedido) {
         // Buscar armazém padrão
-        // Em produção, deveria ser configurado por empresa
         Armazem armazem = armazemRepository.findFirstByEmpresa(getAuthenticatedUser().getEmpresa()).orElseThrow(null);
 
         for (ItemPedido item : pedido.getItens()) {
