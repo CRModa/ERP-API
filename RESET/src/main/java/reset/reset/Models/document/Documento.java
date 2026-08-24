@@ -53,6 +53,8 @@ public class Documento {
     @Column(name = "data_registo", updatable = false)
     private LocalDateTime dataRegisto;
 
+    private String observacao;
+
     @OneToMany(mappedBy = "documento", cascade = CascadeType.ALL)
     private List<DocumentoItem> itens;
 

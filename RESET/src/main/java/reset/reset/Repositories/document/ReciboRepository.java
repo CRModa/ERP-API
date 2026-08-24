@@ -8,6 +8,8 @@ import org.springframework.stereotype.Repository;
 import reset.reset.Models.document.Tipos.Recibo;
 import reset.reset.Repositories.BaseRepository;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -25,4 +27,26 @@ public interface ReciboRepository extends BaseRepository<Recibo, Long> {
                                             @Param("fim") LocalDateTime fim);
 
     Page<Recibo> findByEmpresaId(Long empresaId, Pageable pageable);
+
+    @Query("SELECT COUNT(d) FROM Documento d WHERE d.empresa.id = :empresaId AND d.tipo.id = :tipoId")
+    Long countByEmpresaIdAndTipoId(@Param("empresaId") Long empresaId, @Param("tipoId") Long tipoId);
+
+    @Query("SELECT d FROM Documento d WHERE d.empresa.id = :empresaId AND d.data BETWEEN :inicio AND :fim")
+    List<Recibo> findByEmpresaIdAndDataBetween(@Param("empresaId") Long empresaId,
+                                                  @Param("inicio") LocalDate inicio,
+                                                  @Param("fim") LocalDate fim);
+
+    @Query("SELECT COUNT(d) FROM Documento d WHERE d.empresa.id = :empresaId AND d.tipo.descricao = :tipoDescricao")
+    Long countByEmpresaIdAndTipoDescricao(@Param("empresaId") Long empresaId,
+                                          @Param("tipoDescricao") String tipoDescricao);
+
+    @Query("SELECT SUM(d.total) FROM Documento d WHERE d.empresa.id = :empresaId AND d.tipo.descricao = :tipoDescricao")
+    BigDecimal sumTotalByEmpresaIdAndTipoDescricao(@Param("empresaId") Long empresaId,
+                                                   @Param("tipoDescricao") String tipoDescricao);
+
+    @Query("SELECT SUM(d.total) FROM Documento d WHERE d.empresa.id = :empresaId AND d.tipo.descricao = :tipoDescricao AND d.data BETWEEN :inicio AND :fim")
+    BigDecimal sumTotalByEmpresaIdAndTipoDescricaoAndPeriodo(@Param("empresaId") Long empresaId,
+                                                             @Param("tipoDescricao") String tipoDescricao,
+                                                             @Param("inicio") LocalDateTime inicio,
+                                                             @Param("fim") LocalDateTime fim);
 }

@@ -84,4 +84,9 @@ public interface MovimentoContaRepository extends BaseRepository<MovimentoConta,
     List<MovimentoConta> findByContaIdAndData(@Param("contaId") Long contaId,
                                               @Param("data") LocalDate data);
 
+    @Query("SELECT m.observacao, COUNT(m), SUM(m.valor) FROM MovimentoConta m " +
+            "WHERE m.conta.empresa.id = :empresaId AND m.tipo = 'ENTRADA' " +
+            "GROUP BY m.observacao")
+    List<Object[]> countAndSumByMetodo(@Param("empresaId") Long empresaId);
+
 }

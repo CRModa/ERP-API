@@ -37,6 +37,8 @@ public class MovimentoConta {
     @Column(name = "data")
     private LocalDate data;
 
+    private String observacao;
+
     @Column(columnDefinition = "BOOLEAN DEFAULT TRUE")
     private Boolean ativo = true;
 }

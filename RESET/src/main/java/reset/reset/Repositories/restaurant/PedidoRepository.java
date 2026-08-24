@@ -48,4 +48,8 @@ public interface PedidoRepository extends BaseRepository<Pedido, Long> {
 
     @Query("SELECT COUNT(p) FROM Pedido p WHERE p.mesa.id = :mesaId AND p.status IN ('PENDENTE', 'EM_PREPARO', 'PRONTO')")
     Integer countPedidosAtivosByMesaId(@Param("mesaId") Long mesaId);
+
+    @Query("SELECT COUNT(p) FROM Pedido p WHERE p.empresa.id = :empresaId AND p.status = :status")
+    Long countByEmpresaIdAndStatus(@Param("empresaId") Long empresaId,
+                                   @Param("status") Pedido.StatusPedido status);
 }

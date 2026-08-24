@@ -6,6 +6,7 @@ import reset.reset.Models.document.DocumentoTipo;
 import reset.reset.Repositories.BaseRepository;
 
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface DocumentoTipoRepository extends BaseRepository<DocumentoTipo, Long> {
@@ -17,4 +18,6 @@ public interface DocumentoTipoRepository extends BaseRepository<DocumentoTipo, L
 
     @Query("SELECT d FROM DocumentoTipo d WHERE d.classe = :classe ORDER BY d.descricao ASC")
     List<DocumentoTipo> findByClasseOrderByDescricao(DocumentoTipo.ClasseDocumento classe);
+
+    Optional<DocumentoTipo> findByDescricao(String recibo);
 }
