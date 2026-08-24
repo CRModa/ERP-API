@@ -43,6 +43,8 @@ public class MovimentoStock {
     @Column(length = 100)
     private String referencia;
 
+    private String observacao;
+
     @CreationTimestamp
     @Column(name = "data_movimento", updatable = false)
     private LocalDateTime dataMovimento;

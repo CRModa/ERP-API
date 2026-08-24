@@ -20,6 +20,8 @@ import reset.reset.Models.product.Produto;
 import reset.reset.Models.restaurant.ItemPedido;
 import reset.reset.Models.restaurant.Pedido;
 import reset.reset.Models.stock.Armazem;
+import reset.reset.Models.stock.MovimentoStock;
+import reset.reset.Models.stock.Stock;
 import reset.reset.Repositories.auth.UserRepository;
 import reset.reset.Repositories.core.EmpresaRepository;
 import reset.reset.Repositories.customer.ClienteRepository;
@@ -31,6 +33,8 @@ import reset.reset.Repositories.financial.MovimentoContaRepository;
 import reset.reset.Repositories.product.ProdutoRepository;
 import reset.reset.Repositories.restaurant.PedidoRepository;
 import reset.reset.Repositories.stock.ArmazemRepository;
+import reset.reset.Repositories.stock.MovimentoStockRepository;
+import reset.reset.Repositories.stock.StockRepository;
 import reset.reset.Security.UserPrincipal;
 import reset.reset.Services.stock.StockService;
 import reset.reset.dto.restaurant.PagamentoRequest;
@@ -41,6 +45,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -62,6 +67,8 @@ public class PagamentoService {
     private final UserRepository userRepository;
     private final StockService stockService;
     private final ArmazemRepository armazemRepository;
+    private final StockRepository stockRepository;
+    private final MovimentoStockRepository movimentoStockRepository;
 
     private User getAuthenticatedUser() {
         try {
@@ -214,33 +221,132 @@ public class PagamentoService {
                 .collect(Collectors.toList());
     }
 
-    private void baixarEstoquePedido(Pedido pedido) {
-        // Buscar armazém padrão
-        Armazem armazem = armazemRepository.findFirstByEmpresa(getAuthenticatedUser().getEmpresa()).orElseThrow(null);
+//    private void baixarEstoquePedido(Pedido pedido) {
+//        // Buscar armazém padrão
+//        Armazem armazem = armazemRepository.findFirstByEmpresa(getAuthenticatedUser().getEmpresa()).orElseThrow(null);
+//
+//        for (ItemPedido item : pedido.getItens()) {
+//            Produto produto = item.getProduto();
+//
+//            // Verificar se é produto composto
+//            if (produto.getIsComposto()) {
+//                for (var composto : produto.getItensComposto()) {
+//                    BigDecimal quantidade = composto.getQuantidade().multiply(item.getQuantidade());
+//                    stockService.removerStock(
+//                            composto.getProdutoFilho().getId(),
+//                            armazem.getId(),
+//                            quantidade,
+//                            "Pedido #" + pedido.getNumero()
+//                    );
+//                }
+//            } else {
+//                stockService.removerStock(
+//                        produto.getId(),
+//                        armazem.getId(),
+//                        item.getQuantidade(),
+//                        "Pedido #" + pedido.getNumero()
+//                );
+//            }
+//        }
+//    }
+
+    @Transactional
+    public void baixarEstoquePedido(Pedido pedido) {
+        log.info("Iniciando baixa de estoque em lote para pedido: {}", pedido.getNumero());
+
+        // 1. Coletar todos os produtos e quantidades necessárias
+        Map<Long, BigDecimal> necessidadesPorProduto = new HashMap<>();
 
         for (ItemPedido item : pedido.getItens()) {
             Produto produto = item.getProduto();
 
-            // Verificar se é produto composto
             if (produto.getIsComposto()) {
                 for (var composto : produto.getItensComposto()) {
                     BigDecimal quantidade = composto.getQuantidade().multiply(item.getQuantidade());
-                    stockService.removerStock(
+                    necessidadesPorProduto.merge(
                             composto.getProdutoFilho().getId(),
-                            armazem.getId(),
                             quantidade,
-                            "Pedido #" + pedido.getNumero()
+                            BigDecimal::add
                     );
                 }
             } else {
-                stockService.removerStock(
+                necessidadesPorProduto.merge(
                         produto.getId(),
-                        armazem.getId(),
                         item.getQuantidade(),
-                        "Pedido #" + pedido.getNumero()
+                        BigDecimal::add
                 );
             }
         }
+
+        // 2. Buscar todos os stocks necessários em uma única consulta
+        List<Long> produtoIds = new ArrayList<>(necessidadesPorProduto.keySet());
+        List<Stock> todosStocks = stockRepository.findByProdutoIds(produtoIds);
+
+        // 3. Agrupar stocks por produto
+        Map<Long, List<Stock>> stocksPorProduto = todosStocks.stream()
+                .filter(s -> s.getQuantidadeAtual().compareTo(BigDecimal.ZERO) > 0)
+                .collect(Collectors.groupingBy(s -> s.getProduto().getId()));
+
+        // 4. Processar cada produto
+        List<Stock> stocksParaAtualizar = new ArrayList<>();
+        List<MovimentoStock> movimentos = new ArrayList<>();
+
+        for (Map.Entry<Long, BigDecimal> entry : necessidadesPorProduto.entrySet()) {
+            Long produtoId = entry.getKey();
+            BigDecimal quantidadeNecessaria = entry.getValue();
+
+            List<Stock> stocksProduto = stocksPorProduto.getOrDefault(produtoId, new ArrayList<>());
+
+            if (stocksProduto.isEmpty()) {
+                Produto produto = produtoRepository.findById(produtoId)
+                        .orElseThrow(() -> new EntityNotFoundException("Produto não encontrado: " + produtoId));
+                throw new BusinessException("Stock insuficiente para o produto: " + produto.getNome());
+            }
+
+            // Ordenar por quantidade (maior primeiro)
+            stocksProduto.sort((s1, s2) -> s2.getQuantidadeAtual().compareTo(s1.getQuantidadeAtual()));
+
+            BigDecimal quantidadeRestante = quantidadeNecessaria;
+
+            for (Stock stock : stocksProduto) {
+                if (quantidadeRestante.compareTo(BigDecimal.ZERO) <= 0) {
+                    break;
+                }
+
+                BigDecimal quantidadeDisponivel = stock.getQuantidadeAtual();
+                BigDecimal quantidadeBaixar = quantidadeRestante.min(quantidadeDisponivel);
+
+                // Atualizar stock
+                stock.setQuantidadeAtual(quantidadeDisponivel.subtract(quantidadeBaixar));
+                stocksParaAtualizar.add(stock);
+
+                // Criar movimento
+                MovimentoStock movimento = new MovimentoStock();
+                movimento.setEmpresa(stock.getProduto().getEmpresa());
+                movimento.setProduto(stock.getProduto());
+                movimento.setArmazem(stock.getArmazem());
+                movimento.setTipo("SAIDA_VENDA");
+                movimento.setQuantidade(quantidadeBaixar);
+                movimento.setReferencia("Pedido #" + pedido.getNumero());
+                movimento.setDataMovimento(LocalDateTime.now());
+                movimento.setObservacao("Baixa de estoque em lote - Pedido #" + pedido.getNumero());
+                movimentos.add(movimento);
+
+                quantidadeRestante = quantidadeRestante.subtract(quantidadeBaixar);
+            }
+        }
+
+        // 5. Salvar tudo em lote
+        if (!stocksParaAtualizar.isEmpty()) {
+            stockRepository.saveAll(stocksParaAtualizar);
+        }
+
+        if (!movimentos.isEmpty()) {
+            movimentoStockRepository.saveAll(movimentos);
+        }
+
+        log.info("Baixa de estoque em lote concluída. {} stocks atualizados, {} movimentos criados.",
+                stocksParaAtualizar.size(), movimentos.size());
     }
 
     private String gerarNumeroDocumento(DocumentoTipo tipo, Long empresaId) {
