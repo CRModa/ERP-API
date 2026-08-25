@@ -17,6 +17,8 @@ import reset.reset.Controllers.base.BaseController;
 import reset.reset.Models.financial.Conta;
 import reset.reset.Models.financial.MovimentoConta;
 import reset.reset.Services.financial.ContaService;
+import reset.reset.dto.financial.ContaDTO;
+import reset.reset.dto.financial.MovimentoContaDTO;
 import reset.reset.dto.request.ContaRequest;
 
 import java.math.BigDecimal;
@@ -36,57 +38,57 @@ public class ContaController extends BaseController {
     @PostMapping
     @Operation(summary = "Create a new account")
     @PreAuthorize("hasPermission('FINANCEIRO_CREATE')")
-    public ResponseEntity<ApiResponse<Conta>> create(@Valid @RequestBody ContaRequest request) {
+    public ResponseEntity<ApiResponse<ContaDTO>> create(@Valid @RequestBody ContaRequest request) {
         log.info("Creating new conta");
         Conta conta = request.toEntity();
         Conta saved = contaService.save(conta);
-        return created(saved);
+        return created(ContaDTO.fromEntity(saved));
     }
 
     @PutMapping("/{id}")
     @Operation(summary = "Update an existing account")
     @PreAuthorize("hasPermission('FINANCEIRO_UPDATE')")
-    public ResponseEntity<ApiResponse<Conta>> update(@PathVariable Long id,
-                                                     @Valid @RequestBody ContaRequest request) {
+    public ResponseEntity<ApiResponse<ContaDTO>> update(@PathVariable Long id,
+                                                        @Valid @RequestBody ContaRequest request) {
         log.info("Updating conta with id: {}", id);
         Conta conta = request.toEntity();
         conta.setId(id);
         Conta updated = contaService.update(id, conta);
-        return success(updated, "Conta updated successfully");
+        return success(ContaDTO.fromEntity(updated), "Conta updated successfully");
     }
 
     @GetMapping("/{id}")
     @Operation(summary = "Get account by ID")
     @PreAuthorize("hasPermission('FINANCEIRO_READ')")
-    public ResponseEntity<ApiResponse<Conta>> findById(@PathVariable Long id) {
+    public ResponseEntity<ApiResponse<ContaDTO>> findById(@PathVariable Long id) {
         Conta conta = contaService.findByIdOrThrow(id);
-        return success(conta);
+        return success(ContaDTO.fromEntity(conta));
     }
 
     @GetMapping
     @Operation(summary = "Get all accounts with pagination")
     @PreAuthorize("hasPermission('FINANCEIRO_READ')")
-    public ResponseEntity<ApiResponse<Page<Conta>>> findAll(
+    public ResponseEntity<ApiResponse<Page<ContaDTO>>> findAll(
             @PageableDefault(size = 20, sort = "descricao", direction = Sort.Direction.ASC) Pageable pageable) {
-        Page<Conta> contas = contaService.findAll(pageable);
+        Page<ContaDTO> contas = contaService.findAllDTO(pageable);
         return success(contas);
     }
 
     @GetMapping("/empresa/{empresaId}")
     @Operation(summary = "Get accounts by company")
     @PreAuthorize("hasPermission('FINANCEIRO_READ')")
-    public ResponseEntity<ApiResponse<Page<Conta>>> findByEmpresa(
+    public ResponseEntity<ApiResponse<Page<ContaDTO>>> findByEmpresa(
             @PathVariable Long empresaId,
             @PageableDefault(size = 20) Pageable pageable) {
-        Page<Conta> contas = contaService.findByEmpresaId(empresaId, pageable);
+        Page<ContaDTO> contas = contaService.findByEmpresaIdDTO(empresaId, pageable);
         return success(contas);
     }
 
     @GetMapping("/tipo/{tipo}")
     @Operation(summary = "Get accounts by type")
     @PreAuthorize("hasPermission('FINANCEIRO_READ')")
-    public ResponseEntity<ApiResponse<List<Conta>>> findByTipo(@PathVariable String tipo) {
-        List<Conta> contas = contaService.findByTipo(tipo);
+    public ResponseEntity<ApiResponse<List<ContaDTO>>> findByTipo(@PathVariable String tipo) {
+        List<ContaDTO> contas = contaService.findByTipoDTO(tipo);
         return success(contas);
     }
 
@@ -98,17 +100,35 @@ public class ContaController extends BaseController {
         return success(saldo);
     }
 
+    @GetMapping("/{id}/saldo-com-movimentos")
+    @Operation(summary = "Get account balance with movements")
+    @PreAuthorize("hasPermission('FINANCEIRO_READ')")
+    public ResponseEntity<ApiResponse<ContaDTO>> getSaldoComMovimentos(@PathVariable Long id) {
+        ContaDTO conta = contaService.getSaldoContaComMovimentosDTO(id);
+        return success(conta);
+    }
+
     @PostMapping("/{id}/movimento")
     @Operation(summary = "Register account movement")
     @PreAuthorize("hasPermission('FINANCEIRO_CREATE')")
-    public ResponseEntity<ApiResponse<MovimentoConta>> registrarMovimento(
+    public ResponseEntity<ApiResponse<MovimentoContaDTO>> registrarMovimento(
             @PathVariable Long id,
             @RequestParam String tipo,
             @RequestParam BigDecimal valor,
             @RequestParam(required = false) Long documentoId,
             @RequestParam(required = false) LocalDate data) {
-        MovimentoConta movimento = contaService.registrarMovimento(id, tipo, valor, documentoId, data);
+        MovimentoContaDTO movimento = contaService.registrarMovimentoDTO(id, tipo, valor, documentoId, data);
         return created(movimento);
+    }
+
+    @GetMapping("/{id}/movimentos")
+    @Operation(summary = "Get account movements")
+    @PreAuthorize("hasPermission('FINANCEIRO_READ')")
+    public ResponseEntity<ApiResponse<Page<MovimentoContaDTO>>> getMovimentos(
+            @PathVariable Long id,
+            @PageableDefault(size = 20) Pageable pageable) {
+        Page<MovimentoContaDTO> movimentos = contaService.findMovimentosByContaIdDTO(id, pageable);
+        return success(movimentos);
     }
 
     @DeleteMapping("/{id}")

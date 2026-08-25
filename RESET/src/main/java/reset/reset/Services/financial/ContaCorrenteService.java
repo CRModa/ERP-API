@@ -10,6 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 import reset.reset.Exceptions.BusinessException;
 import reset.reset.Exceptions.EntityNotFoundException;
 import reset.reset.Models.customer.Cliente;
+import reset.reset.Models.customer.Fornecedor;
 import reset.reset.Models.document.Documento;
 import reset.reset.Models.financial.ContaCorrente;
 import reset.reset.Repositories.core.EmpresaRepository;
@@ -19,16 +20,20 @@ import reset.reset.Repositories.document.DocumentoRepository;
 import reset.reset.Repositories.financial.ContaCorrenteRepository;
 import reset.reset.Services.base.BaseServiceImpl;
 import reset.reset.dto.filter.ContaCorrenteFilter;
+import reset.reset.dto.financial.ContaCorrenteDTO;
+import reset.reset.dto.financial.ContaCorrenteResumoDTO;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @Slf4j
 public class ContaCorrenteService extends BaseServiceImpl<ContaCorrente, Long, ContaCorrenteRepository> {
 
     private final ContaCorrenteRepository contaCorrenteRepository;
+
     @Autowired
     private ClienteRepository clienteRepository;
     @Autowired
@@ -37,7 +42,6 @@ public class ContaCorrenteService extends BaseServiceImpl<ContaCorrente, Long, C
     private DocumentoRepository documentoRepository;
     @Autowired
     private EmpresaRepository empresaRepository;
-    @Autowired
 
     public ContaCorrenteService(ContaCorrenteRepository repository) {
         super(repository);
@@ -92,7 +96,6 @@ public class ContaCorrenteService extends BaseServiceImpl<ContaCorrente, Long, C
     @Override
     @Transactional
     public ContaCorrente save(ContaCorrente contaCorrente) {
-        // Calculate saldo anterior e atual
         BigDecimal saldoAnterior = calcularSaldoAnterior(contaCorrente);
         contaCorrente.setSaldoAnterior(saldoAnterior);
 
@@ -104,7 +107,6 @@ public class ContaCorrenteService extends BaseServiceImpl<ContaCorrente, Long, C
         }
         contaCorrente.setSaldoAtual(saldoAtual);
 
-        // Set default values
         if (contaCorrente.getDataMovimento() == null) {
             contaCorrente.setDataMovimento(LocalDate.now());
         }
@@ -113,8 +115,6 @@ public class ContaCorrenteService extends BaseServiceImpl<ContaCorrente, Long, C
         }
 
         ContaCorrente saved = super.save(contaCorrente);
-
-        // Update cliente saldo corrente
         atualizarSaldoCliente(saved);
 
         return saved;
@@ -154,6 +154,99 @@ public class ContaCorrenteService extends BaseServiceImpl<ContaCorrente, Long, C
             }
         }
     }
+
+    // ==================== MÉTODOS COM RETORNO DTO ====================
+
+    public Page<ContaCorrenteDTO> filterDTO(ContaCorrenteFilter filter) {
+        Page<ContaCorrente> contas = contaCorrenteRepository.filter(filter);
+        return contas.map(ContaCorrenteDTO::fromEntity);
+    }
+
+    public ContaCorrenteDTO findByIdDTO(Long id) {
+        ContaCorrente conta = findByIdOrThrow(id);
+        return ContaCorrenteDTO.fromEntity(conta);
+    }
+
+    public Page<ContaCorrenteDTO> findAllDTO(Pageable pageable) {
+        Page<ContaCorrente> contas = findAll(pageable);
+        return contas.map(ContaCorrenteDTO::fromEntity);
+    }
+
+    public List<ContaCorrenteDTO> findByClienteIdDTO(Long clienteId) {
+        List<ContaCorrente> contas = contaCorrenteRepository.findByClienteIdOrderByDataMovimentoDesc(clienteId);
+        return contas.stream()
+                .map(ContaCorrenteDTO::fromEntity)
+                .collect(Collectors.toList());
+    }
+
+    public Page<ContaCorrenteDTO> findByClienteIdDTO(Long clienteId, Pageable pageable) {
+        Page<ContaCorrente> contas = contaCorrenteRepository.findByClienteId(clienteId, pageable);
+        return contas.map(ContaCorrenteDTO::fromEntity);
+    }
+
+    public List<ContaCorrenteDTO> findByFornecedorIdDTO(Long fornecedorId) {
+        List<ContaCorrente> contas = contaCorrenteRepository.findByFornecedorIdOrderByDataMovimentoDesc(fornecedorId);
+        return contas.stream()
+                .map(ContaCorrenteDTO::fromEntity)
+                .collect(Collectors.toList());
+    }
+
+    public Page<ContaCorrenteDTO> findByFornecedorIdDTO(Long fornecedorId, Pageable pageable) {
+        Page<ContaCorrente> contas = contaCorrenteRepository.findByFornecedorId(fornecedorId, pageable);
+        return contas.map(ContaCorrenteDTO::fromEntity);
+    }
+
+    public List<ContaCorrenteResumoDTO> findDebitosNaoPagosByClienteDTO(Long clienteId) {
+        List<ContaCorrente> debitos = contaCorrenteRepository.findDebitosNaoPagosByCliente(clienteId);
+        return debitos.stream()
+                .map(ContaCorrenteResumoDTO::fromEntity)
+                .collect(Collectors.toList());
+    }
+
+    public List<ContaCorrenteDTO> findContasVencidasDTO() {
+        List<ContaCorrente> contas = contaCorrenteRepository.findContasVencidas(LocalDate.now());
+        return contas.stream()
+                .map(ContaCorrenteDTO::fromEntity)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional
+    public ContaCorrenteDTO marcarComoPagoDTO(Long id) {
+        ContaCorrente conta = marcarComoPago(id);
+        return ContaCorrenteDTO.fromEntity(conta);
+    }
+
+    @Transactional
+    public ContaCorrenteDTO criarDebitoClienteDTO(Long clienteId, Long documentoId, BigDecimal valor,
+                                                  String descricao, LocalDate dataVencimento) {
+        ContaCorrente conta = criarDebitoCliente(clienteId, documentoId, valor, descricao, dataVencimento);
+        return ContaCorrenteDTO.fromEntity(conta);
+    }
+
+    @Transactional
+    public ContaCorrenteDTO criarCreditoClienteDTO(Long clienteId, Long documentoId, BigDecimal valor,
+                                                   String descricao) {
+        ContaCorrente conta = criarCreditoCliente(clienteId, documentoId, valor, descricao);
+        return ContaCorrenteDTO.fromEntity(conta);
+    }
+
+    public BigDecimal getSaldoAtualCliente(Long clienteId) {
+        List<ContaCorrente> movimentos = contaCorrenteRepository.findByClienteIdOrderByDataMovimentoDesc(clienteId);
+        if (movimentos.isEmpty()) {
+            return BigDecimal.ZERO;
+        }
+        return movimentos.get(0).getSaldoAtual();
+    }
+
+    public BigDecimal getSaldoAtualFornecedor(Long fornecedorId) {
+        List<ContaCorrente> movimentos = contaCorrenteRepository.findByFornecedorIdOrderByDataMovimentoDesc(fornecedorId);
+        if (movimentos.isEmpty()) {
+            return BigDecimal.ZERO;
+        }
+        return movimentos.get(0).getSaldoAtual();
+    }
+
+    // ==================== MÉTODOS ORIGINAIS (MANTIDOS) ====================
 
     @Transactional
     public ContaCorrente marcarComoPago(Long id) {

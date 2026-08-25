@@ -58,5 +58,9 @@ public interface ContaCorrenteRepository extends BaseRepository<ContaCorrente, L
         }
         return findAll(spec, filter.toPageable());
     }
+
+    Page<ContaCorrente> findByClienteId(Long clienteId, Pageable pageable);
+
+    Page<ContaCorrente> findByFornecedorId(Long fornecedorId, Pageable pageable);
 }
 

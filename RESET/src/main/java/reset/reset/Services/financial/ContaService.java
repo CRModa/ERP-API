@@ -14,16 +14,20 @@ import reset.reset.Repositories.core.EmpresaRepository;
 import reset.reset.Repositories.financial.ContaRepository;
 import reset.reset.Repositories.financial.MovimentoContaRepository;
 import reset.reset.Services.base.BaseServiceImpl;
+import reset.reset.dto.financial.ContaDTO;
+import reset.reset.dto.financial.MovimentoContaDTO;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @Slf4j
 public class ContaService extends BaseServiceImpl<Conta, Long, ContaRepository> {
 
     private final ContaRepository contaRepository;
+
     @Autowired
     private MovimentoContaRepository movimentoContaRepository;
     @Autowired
@@ -55,6 +59,51 @@ public class ContaService extends BaseServiceImpl<Conta, Long, ContaRepository> 
             throw new BusinessException("Invalid account type. Valid types: " + tiposValidos);
         }
     }
+
+    // ==================== MÉTODOS COM RETORNO DTO ====================
+
+    public Page<ContaDTO> findAllDTO(Pageable pageable) {
+        Page<Conta> contas = findAll(pageable);
+        return contas.map(ContaDTO::fromEntity);
+    }
+
+    public ContaDTO findByIdDTO(Long id) {
+        Conta conta = findByIdOrThrow(id);
+        return ContaDTO.fromEntity(conta);
+    }
+
+    public Page<ContaDTO> findByEmpresaIdDTO(Long empresaId, Pageable pageable) {
+        Page<Conta> contas = contaRepository.findByEmpresaId(empresaId, pageable);
+        return contas.map(ContaDTO::fromEntity);
+    }
+
+    public List<ContaDTO> findByTipoDTO(String tipo) {
+        List<Conta> contas = contaRepository.findByTipo(tipo);
+        return contas.stream()
+                .map(ContaDTO::fromEntity)
+                .collect(Collectors.toList());
+    }
+
+    public ContaDTO getSaldoContaComMovimentosDTO(Long contaId) {
+        Conta conta = findByIdOrThrow(contaId);
+        ContaDTO dto = ContaDTO.fromEntity(conta);
+        dto.setSaldoAtual(getSaldoConta(contaId));
+        return dto;
+    }
+
+    @Transactional
+    public MovimentoContaDTO registrarMovimentoDTO(Long contaId, String tipo, BigDecimal valor,
+                                                   Long documentoId, LocalDate data) {
+        MovimentoConta movimento = registrarMovimento(contaId, tipo, valor, documentoId, data);
+        return MovimentoContaDTO.fromEntity(movimento);
+    }
+
+    public Page<MovimentoContaDTO> findMovimentosByContaIdDTO(Long contaId, Pageable pageable) {
+        Page<MovimentoConta> movimentos = movimentoContaRepository.findByContaId(contaId, pageable);
+        return movimentos.map(MovimentoContaDTO::fromEntity);
+    }
+
+    // ==================== MÉTODOS ORIGINAIS (MANTIDOS) ====================
 
     @Transactional
     public MovimentoConta registrarMovimento(Long contaId, String tipo, BigDecimal valor,
@@ -98,4 +147,3 @@ public class ContaService extends BaseServiceImpl<Conta, Long, ContaRepository> 
         return contaRepository.findByTipo(tipo);
     }
 }
-
