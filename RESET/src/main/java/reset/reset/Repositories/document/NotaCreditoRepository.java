@@ -6,10 +6,14 @@ import org.springframework.stereotype.Repository;
 import reset.reset.Models.document.Tipos.NotaCredito;
 import reset.reset.Repositories.BaseRepository;
 
+import java.util.Optional;
+
 @Repository
 public interface NotaCreditoRepository extends BaseRepository<NotaCredito, Long> {
 
     Page<NotaCredito> findByEmpresaId(Long empresaId, Pageable pageable);
 
     boolean existsByDocumentoOrigemId(Long documentoOrigemId);
+
+    Optional<NotaCredito> findByDocumentoOrigemId(Long documentoOrigemId);
 }

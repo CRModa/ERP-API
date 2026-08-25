@@ -16,6 +16,7 @@ import reset.reset.Controllers.base.ApiResponse;
 import reset.reset.Controllers.base.BaseController;
 import reset.reset.Models.document.DocumentoTipo;
 import reset.reset.Services.document.DocumentoTipoService;
+import reset.reset.dto.document.DocumentoTipoDTO;
 import reset.reset.dto.request.DocumentoTipoRequest;
 
 import java.util.List;
@@ -32,57 +33,58 @@ public class DocumentoTipoController extends BaseController {
 
     @PostMapping
     @Operation(summary = "Create a new document type")
-    public ResponseEntity<ApiResponse<DocumentoTipo>> create(@Valid @RequestBody DocumentoTipoRequest request) {
+    public ResponseEntity<ApiResponse<DocumentoTipoDTO>> create(@Valid @RequestBody DocumentoTipoRequest request) {
         log.info("Creating new documento tipo: {}", request.getDescricao());
         DocumentoTipo tipo = request.toEntity();
         DocumentoTipo saved = documentoTipoService.save(tipo);
-        return created(saved);
+        return created(DocumentoTipoDTO.fromEntity(saved));
     }
 
     @PutMapping("/{id}")
     @Operation(summary = "Update an existing document type")
-    public ResponseEntity<ApiResponse<DocumentoTipo>> update(@PathVariable Long id,
-                                                             @Valid @RequestBody DocumentoTipoRequest request) {
+    public ResponseEntity<ApiResponse<DocumentoTipoDTO>> update(@PathVariable Long id,
+                                                                @Valid @RequestBody DocumentoTipoRequest request) {
         log.info("Updating documento tipo with id: {}", id);
         DocumentoTipo tipo = request.toEntity();
         tipo.setId(id);
         DocumentoTipo updated = documentoTipoService.update(id, tipo);
-        return success(updated, "Documento tipo updated successfully");
+        return success(DocumentoTipoDTO.fromEntity(updated), "Documento tipo updated successfully");
     }
 
     @GetMapping("/{id}")
     @Operation(summary = "Get document type by ID")
-    public ResponseEntity<ApiResponse<DocumentoTipo>> findById(@PathVariable Long id) {
+    public ResponseEntity<ApiResponse<DocumentoTipoDTO>> findById(@PathVariable Long id) {
         DocumentoTipo tipo = documentoTipoService.findByIdOrThrow(id);
-        return success(tipo);
+        return success(DocumentoTipoDTO.fromEntity(tipo));
     }
 
     @GetMapping
     @Operation(summary = "Get all document types with pagination")
-    public ResponseEntity<ApiResponse<Page<DocumentoTipo>>> findAll(
+    public ResponseEntity<ApiResponse<Page<DocumentoTipoDTO>>> findAll(
             @PageableDefault(size = 20, sort = "descricao", direction = Sort.Direction.ASC) Pageable pageable) {
-        Page<DocumentoTipo> tipos = documentoTipoService.findAll(pageable);
+        Page<DocumentoTipoDTO> tipos = documentoTipoService.findAllDTO(pageable);
         return success(tipos);
     }
 
     @GetMapping("/classe/{classe}")
     @Operation(summary = "Get document types by class")
-    public ResponseEntity<ApiResponse<List<DocumentoTipo>>> findByClasse(@PathVariable DocumentoTipo.ClasseDocumento classe) {
-        List<DocumentoTipo> tipos = documentoTipoService.findByClasse(classe);
+    public ResponseEntity<ApiResponse<List<DocumentoTipoDTO>>> findByClasse(
+            @PathVariable DocumentoTipo.ClasseDocumento classe) {
+        List<DocumentoTipoDTO> tipos = documentoTipoService.findByClasseDTO(classe);
         return success(tipos);
     }
 
     @GetMapping("/movimenta-stock")
     @Operation(summary = "Get document types that affect stock")
-    public ResponseEntity<ApiResponse<List<DocumentoTipo>>> findMovimentaStock() {
-        List<DocumentoTipo> tipos = documentoTipoService.findTiposQueMovimentamStock();
+    public ResponseEntity<ApiResponse<List<DocumentoTipoDTO>>> findMovimentaStock() {
+        List<DocumentoTipoDTO> tipos = documentoTipoService.findTiposQueMovimentamStockDTO();
         return success(tipos);
     }
 
     @GetMapping("/afeta-contas")
     @Operation(summary = "Get document types that affect accounts")
-    public ResponseEntity<ApiResponse<List<DocumentoTipo>>> findAfetaContas() {
-        List<DocumentoTipo> tipos = documentoTipoService.findTiposQueAfetamContas();
+    public ResponseEntity<ApiResponse<List<DocumentoTipoDTO>>> findAfetaContas() {
+        List<DocumentoTipoDTO> tipos = documentoTipoService.findTiposQueAfetamContasDTO();
         return success(tipos);
     }
 

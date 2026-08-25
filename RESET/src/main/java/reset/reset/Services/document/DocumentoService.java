@@ -17,6 +17,8 @@ import reset.reset.Repositories.document.DocumentoRepository;
 import reset.reset.Repositories.document.DocumentoTipoRepository;
 import reset.reset.Repositories.product.ProdutoRepository;
 import reset.reset.Services.base.BaseServiceImpl;
+import reset.reset.dto.document.DocumentoDTO;
+import reset.reset.dto.document.DocumentoResumoDTO;
 import reset.reset.dto.filter.DocumentoFilter;
 import reset.reset.dto.projection.DocumentoResumo;
 
@@ -29,6 +31,7 @@ import java.util.List;
 public class DocumentoService extends BaseServiceImpl<Documento, Long, DocumentoRepository> {
 
     private final DocumentoRepository documentoRepository;
+
     @Autowired
     private DocumentoTipoRepository documentoTipoRepository;
     @Autowired
@@ -37,7 +40,6 @@ public class DocumentoService extends BaseServiceImpl<Documento, Long, Documento
     private ClienteRepository clienteRepository;
     @Autowired
     private ProdutoRepository produtoRepository;
-    @Autowired
 
     public DocumentoService(DocumentoRepository repository) {
         super(repository);
@@ -95,21 +97,17 @@ public class DocumentoService extends BaseServiceImpl<Documento, Long, Documento
     @Override
     @Transactional
     public Documento save(Documento documento) {
-        // Generate document number if automatic
         if (documento.getTipo().getNumeracaoAutomatica() && documento.getNumero() == null) {
             documento.setNumero(gerarNumeroDocumento(documento));
         }
 
-        // Calculate total
         BigDecimal total = calcularTotal(documento);
         documento.setTotal(total);
 
-        // Set data if not provided
         if (documento.getData() == null) {
             documento.setData(LocalDate.now());
         }
 
-        // Set estado if not provided
         if (documento.getEstado() == null) {
             documento.setEstado("PENDENTE");
         }
@@ -122,11 +120,8 @@ public class DocumentoService extends BaseServiceImpl<Documento, Long, Documento
         String prefixo = tipo.getSeriePrefixo() != null ? tipo.getSeriePrefixo() : "DOC";
         String ano = String.valueOf(LocalDate.now().getYear());
         String mes = String.format("%02d", LocalDate.now().getMonthValue());
-
-        // Get next sequence number
         long count = documentoRepository.count() + 1;
         String seq = String.format("%06d", count);
-
         return prefixo + ano + mes + seq;
     }
 
@@ -138,7 +133,6 @@ public class DocumentoService extends BaseServiceImpl<Documento, Long, Documento
         return documento.getItens().stream()
                 .map(item -> {
                     BigDecimal subtotal = item.getPrecoUnitario().multiply(item.getQuantidade());
-                    // Apply discount if any
                     if (item.getDesconto() != null && item.getDesconto().getValor() != null) {
                         if ("PERCENTAGEM".equals(item.getDesconto().getTipo())) {
                             BigDecimal descontoValor = subtotal.multiply(
@@ -149,7 +143,6 @@ public class DocumentoService extends BaseServiceImpl<Documento, Long, Documento
                             subtotal = subtotal.subtract(item.getDesconto().getValor());
                         }
                     }
-                    // Apply IVA if any
                     if (item.getIva() != null && item.getIva().getTaxa() != null) {
                         BigDecimal ivaValor = subtotal.multiply(
                                 item.getIva().getTaxa().divide(new BigDecimal("100"))
@@ -160,6 +153,59 @@ public class DocumentoService extends BaseServiceImpl<Documento, Long, Documento
                 })
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
+
+    // ==================== MÉTODOS COM RETORNO DTO ====================
+
+    public DocumentoDTO findByIdDTO(Long id) {
+        Documento documento = findByIdOrThrow(id);
+        return DocumentoDTO.fromEntity(documento);
+    }
+
+    public Page<DocumentoDTO> filterDTO(DocumentoFilter filter) {
+        Page<Documento> documentos = documentoRepository.filter(filter);
+        return documentos.map(DocumentoDTO::fromEntity);
+    }
+
+    public Page<DocumentoDTO> findByClienteIdDTO(Long clienteId, Pageable pageable) {
+        Page<Documento> documentos = documentoRepository.findByClienteId(clienteId, pageable);
+        return documentos.map(DocumentoDTO::fromEntity);
+    }
+
+    public Page<DocumentoDTO> findByTipoIdDTO(Long tipoId, Pageable pageable) {
+        Page<Documento> documentos = documentoRepository.findByTipoId(tipoId, pageable);
+        return documentos.map(DocumentoDTO::fromEntity);
+    }
+
+    public Page<DocumentoDTO> findByEstadoDTO(String estado, Pageable pageable) {
+        Page<Documento> documentos = documentoRepository.findByEstado(estado, pageable);
+        return documentos.map(DocumentoDTO::fromEntity);
+    }
+
+    public Page<DocumentoResumoDTO> findDocumentoResumoByEmpresaIdDTO(Long empresaId, Pageable pageable) {
+        Page<DocumentoResumo> resumos = documentoRepository.findDocumentoResumoByEmpresaId(empresaId, pageable);
+        return resumos.map(this::toDocumentoResumoDTO);
+    }
+
+    private DocumentoResumoDTO toDocumentoResumoDTO(DocumentoResumo resumo) {
+        return DocumentoResumoDTO.builder()
+                .id(resumo.getId())
+                .numero(resumo.getNumero())
+                .data(resumo.getData())
+                .total(resumo.getTotal())
+                .estado(resumo.getEstado())
+                .clienteNome(resumo.getClienteNome())
+                .tipoDescricao(resumo.getTipoDescricao())
+                .quantidadeItens(resumo.getQuantidadeItens())
+                .build();
+    }
+
+    @Transactional
+    public DocumentoDTO mudarEstadoDTO(Long documentoId, String novoEstado) {
+        Documento documento = mudarEstado(documentoId, novoEstado);
+        return DocumentoDTO.fromEntity(documento);
+    }
+
+    // ==================== MÉTODOS ORIGINAIS (MANTIDOS) ====================
 
     @Transactional
     public Documento mudarEstado(Long documentoId, String novoEstado) {

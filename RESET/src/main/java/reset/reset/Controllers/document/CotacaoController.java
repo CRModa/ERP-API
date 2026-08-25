@@ -14,8 +14,8 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import reset.reset.Controllers.base.ApiResponse;
 import reset.reset.Controllers.base.BaseController;
-import reset.reset.Models.document.Tipos.Cotacao;
 import reset.reset.Services.document.CotacaoService;
+import reset.reset.dto.document.CotacaoDTO;
 import reset.reset.dto.request.CotacaoRequest;
 
 import java.util.List;
@@ -33,78 +33,84 @@ public class CotacaoController extends BaseController {
     @PostMapping
     @Operation(summary = "Create a new quotation")
     @PreAuthorize("hasPermission('DOCUMENTO_CREATE')")
-    public ResponseEntity<ApiResponse<Cotacao>> create(@Valid @RequestBody CotacaoRequest request) {
+    public ResponseEntity<ApiResponse<CotacaoDTO>> create(@Valid @RequestBody CotacaoRequest request) {
         log.info("Creating new cotacao");
-        Cotacao cotacao = request.toEntity();
-        Cotacao saved = cotacaoService.save(cotacao);
-        return created(saved);
+        return created(cotacaoService.createCotacao(request));
     }
 
     @GetMapping("/{id}")
     @Operation(summary = "Get quotation by ID")
     @PreAuthorize("hasPermission('DOCUMENTO_READ')")
-    public ResponseEntity<ApiResponse<Cotacao>> findById(@PathVariable Long id) {
-        Cotacao cotacao = cotacaoService.findByIdOrThrow(id);
+    public ResponseEntity<ApiResponse<CotacaoDTO>> findById(@PathVariable Long id) {
+        CotacaoDTO cotacao = cotacaoService.findByIdDTO(id);
         return success(cotacao);
     }
 
     @GetMapping
     @Operation(summary = "Get all quotations with pagination")
     @PreAuthorize("hasPermission('DOCUMENTO_READ')")
-    public ResponseEntity<ApiResponse<Page<Cotacao>>> findAll(
+    public ResponseEntity<ApiResponse<Page<CotacaoDTO>>> findAll(
             @PageableDefault(size = 20, sort = "id", direction = Sort.Direction.DESC) Pageable pageable) {
-        Page<Cotacao> cotacoes = cotacaoService.findAll(pageable);
+        Page<CotacaoDTO> cotacoes = cotacaoService.findAllDTO(pageable);
         return success(cotacoes);
     }
 
     @GetMapping("/empresa/{empresaId}")
     @Operation(summary = "Get quotations by company")
     @PreAuthorize("hasPermission('DOCUMENTO_READ')")
-    public ResponseEntity<ApiResponse<Page<Cotacao>>> findByEmpresa(
+    public ResponseEntity<ApiResponse<Page<CotacaoDTO>>> findByEmpresa(
             @PathVariable Long empresaId,
             @PageableDefault(size = 20) Pageable pageable) {
-        Page<Cotacao> cotacoes = cotacaoService.findByEmpresaId(empresaId, pageable);
+        Page<CotacaoDTO> cotacoes = cotacaoService.findByEmpresaIdDTO(empresaId, pageable);
         return success(cotacoes);
     }
 
     @GetMapping("/pendentes")
     @Operation(summary = "Get pending quotations")
     @PreAuthorize("hasPermission('DOCUMENTO_READ')")
-    public ResponseEntity<ApiResponse<List<Cotacao>>> findPendentes() {
-        List<Cotacao> cotacoes = cotacaoService.findCotacoesPendentes();
+    public ResponseEntity<ApiResponse<List<CotacaoDTO>>> findPendentes() {
+        List<CotacaoDTO> cotacoes = cotacaoService.findCotacoesPendentesDTO();
         return success(cotacoes);
     }
 
     @GetMapping("/aprovadas")
     @Operation(summary = "Get approved quotations")
     @PreAuthorize("hasPermission('DOCUMENTO_READ')")
-    public ResponseEntity<ApiResponse<List<Cotacao>>> findAprovadas() {
-        List<Cotacao> cotacoes = cotacaoService.findCotacoesAprovadas();
+    public ResponseEntity<ApiResponse<List<CotacaoDTO>>> findAprovadas() {
+        List<CotacaoDTO> cotacoes = cotacaoService.findCotacoesAprovadasDTO();
         return success(cotacoes);
     }
 
     @GetMapping("/expiradas")
     @Operation(summary = "Get expired quotations")
     @PreAuthorize("hasPermission('DOCUMENTO_READ')")
-    public ResponseEntity<ApiResponse<List<Cotacao>>> findExpiradas() {
-        List<Cotacao> cotacoes = cotacaoService.findCotacoesExpiradas();
+    public ResponseEntity<ApiResponse<List<CotacaoDTO>>> findExpiradas() {
+        List<CotacaoDTO> cotacoes = cotacaoService.findCotacoesExpiradasDTO();
         return success(cotacoes);
     }
 
     @PatchMapping("/{id}/aprovar")
     @Operation(summary = "Approve quotation")
     @PreAuthorize("hasPermission('DOCUMENTO_UPDATE')")
-    public ResponseEntity<ApiResponse<Cotacao>> aprovar(@PathVariable Long id) {
-        Cotacao cotacao = cotacaoService.aprovarCotacao(id);
+    public ResponseEntity<ApiResponse<CotacaoDTO>> aprovar(@PathVariable Long id) {
+        CotacaoDTO cotacao = cotacaoService.aprovarCotacaoDTO(id);
         return success(cotacao, "Cotação approved");
     }
 
     @PatchMapping("/{id}/rejeitar")
     @Operation(summary = "Reject quotation")
     @PreAuthorize("hasPermission('DOCUMENTO_UPDATE')")
-    public ResponseEntity<ApiResponse<Cotacao>> rejeitar(@PathVariable Long id,
-                                                         @RequestParam String motivo) {
-        Cotacao cotacao = cotacaoService.rejeitarCotacao(id, motivo);
+    public ResponseEntity<ApiResponse<CotacaoDTO>> rejeitar(@PathVariable Long id,
+                                                            @RequestParam String motivo) {
+        CotacaoDTO cotacao = cotacaoService.rejeitarCotacaoDTO(id, motivo);
         return success(cotacao, "Cotação rejected");
+    }
+
+    @PatchMapping("/{id}/converter")
+    @Operation(summary = "Convert quotation to proforma invoice")
+    @PreAuthorize("hasPermission('DOCUMENTO_UPDATE')")
+    public ResponseEntity<ApiResponse<CotacaoDTO>> converter(@PathVariable Long id) {
+        CotacaoDTO cotacao = cotacaoService.converterParaFaturaProformaDTO(id);
+        return success(cotacao, "Cotação converted to proforma invoice");
     }
 }

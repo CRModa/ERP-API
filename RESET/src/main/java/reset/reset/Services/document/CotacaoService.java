@@ -1,6 +1,5 @@
 package reset.reset.Services.document;
 
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -10,11 +9,14 @@ import reset.reset.Exceptions.BusinessException;
 import reset.reset.Models.document.Tipos.Cotacao;
 import reset.reset.Repositories.document.CotacaoRepository;
 import reset.reset.Services.base.BaseServiceImpl;
+import reset.reset.dto.document.CotacaoDTO;
+import reset.reset.dto.request.CotacaoRequest;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @Slf4j
@@ -45,6 +47,71 @@ public class CotacaoService extends BaseServiceImpl<Cotacao, Long, CotacaoReposi
         }
         return super.save(cotacao);
     }
+
+    // ==================== MÉTODOS COM RETORNO DTO ====================
+
+    @Transactional
+    public CotacaoDTO createCotacao(CotacaoRequest request) {
+        Cotacao cotacao = request.toEntity();
+        Cotacao saved = save(cotacao);
+        return CotacaoDTO.fromEntity(saved);
+    }
+
+    public CotacaoDTO findByIdDTO(Long id) {
+        Cotacao cotacao = findByIdOrThrow(id);
+        return CotacaoDTO.fromEntity(cotacao);
+    }
+
+    public Page<CotacaoDTO> findAllDTO(Pageable pageable) {
+        Page<Cotacao> cotacoes = findAll(pageable);
+        return cotacoes.map(CotacaoDTO::fromEntity);
+    }
+
+    public Page<CotacaoDTO> findByEmpresaIdDTO(Long empresaId, Pageable pageable) {
+        Page<Cotacao> cotacoes = cotacaoRepository.findByEmpresaId(empresaId, pageable);
+        return cotacoes.map(CotacaoDTO::fromEntity);
+    }
+
+    public List<CotacaoDTO> findCotacoesPendentesDTO() {
+        List<Cotacao> cotacoes = cotacaoRepository.findCotacoesPendentes();
+        return cotacoes.stream()
+                .map(CotacaoDTO::fromEntity)
+                .collect(Collectors.toList());
+    }
+
+    public List<CotacaoDTO> findCotacoesAprovadasDTO() {
+        List<Cotacao> cotacoes = cotacaoRepository.findCotacoesAprovadas();
+        return cotacoes.stream()
+                .map(CotacaoDTO::fromEntity)
+                .collect(Collectors.toList());
+    }
+
+    public List<CotacaoDTO> findCotacoesExpiradasDTO() {
+        List<Cotacao> cotacoes = cotacaoRepository.findCotacoesExpiradas(LocalDate.now());
+        return cotacoes.stream()
+                .map(CotacaoDTO::fromEntity)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional
+    public CotacaoDTO aprovarCotacaoDTO(Long id) {
+        Cotacao cotacao = aprovarCotacao(id);
+        return CotacaoDTO.fromEntity(cotacao);
+    }
+
+    @Transactional
+    public CotacaoDTO rejeitarCotacaoDTO(Long id, String motivo) {
+        Cotacao cotacao = rejeitarCotacao(id, motivo);
+        return CotacaoDTO.fromEntity(cotacao);
+    }
+
+    @Transactional
+    public CotacaoDTO converterParaFaturaProformaDTO(Long id) {
+        Cotacao cotacao = converterParaFaturaProforma(id);
+        return CotacaoDTO.fromEntity(cotacao);
+    }
+
+    // ==================== MÉTODOS ORIGINAIS (MANTIDOS) ====================
 
     @Transactional
     public Cotacao aprovarCotacao(Long id) {

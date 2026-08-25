@@ -32,7 +32,7 @@ public interface DocumentoRepository extends BaseRepository<Documento, Long> {
     Page<Documento> findByTipoId(@Param("tipoId") Long tipoId, Pageable pageable);
 
     @Query("SELECT d FROM Documento d WHERE d.estado = :estado")
-    List<Documento> findByEstado(@Param("estado") String estado);
+    Page<Documento> findByEstado(@Param("estado") String estado, Pageable pageable);
 
     @Query("SELECT d FROM Documento d WHERE d.data BETWEEN :dataInicio AND :dataFim")
     List<Documento> findByDataBetween(@Param("dataInicio") LocalDate dataInicio,
@@ -58,7 +58,7 @@ public interface DocumentoRepository extends BaseRepository<Documento, Long> {
                                   @Param("dataFim") LocalDate dataFim);
 
     @Query("SELECT d.id as id, d.numero as numero, d.data as data, d.total as total, " +
-            "d.estado as estado, c.nome as clienteNome, t.descricao as tipoDescricao " +
+            "d.estado as estado, c.nome as clienteNome, t.descricao as tipoDescricao, SIZE(d.itens) as quantidadeItens " +
             "FROM Documento d LEFT JOIN d.cliente c JOIN d.tipo t " +
             "WHERE d.empresa.id = :empresaId")
     Page<DocumentoResumo> findDocumentoResumoByEmpresaId(@Param("empresaId") Long empresaId, Pageable pageable);

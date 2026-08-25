@@ -1,6 +1,5 @@
 package reset.reset.Services.document;
 
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -10,10 +9,13 @@ import reset.reset.Exceptions.BusinessException;
 import reset.reset.Models.document.Tipos.NotaEncomenda;
 import reset.reset.Repositories.document.NotaEncomendaRepository;
 import reset.reset.Services.base.BaseServiceImpl;
+import reset.reset.dto.document.NotaEncomendaDTO;
+import reset.reset.dto.request.NotaEncomendaRequest;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @Slf4j
@@ -51,6 +53,64 @@ public class NotaEncomendaService extends BaseServiceImpl<NotaEncomenda, Long, N
         }
         return super.save(notaEncomenda);
     }
+
+    // ==================== MÉTODOS COM RETORNO DTO ====================
+
+    @Transactional
+    public NotaEncomendaDTO createNotaEncomenda(NotaEncomendaRequest request) {
+        NotaEncomenda nota = request.toEntity();
+        NotaEncomenda saved = save(nota);
+        return NotaEncomendaDTO.fromEntity(saved);
+    }
+
+    public NotaEncomendaDTO findByIdDTO(Long id) {
+        NotaEncomenda nota = findByIdOrThrow(id);
+        return NotaEncomendaDTO.fromEntity(nota);
+    }
+
+    public Page<NotaEncomendaDTO> findAllDTO(Pageable pageable) {
+        Page<NotaEncomenda> notas = findAll(pageable);
+        return notas.map(NotaEncomendaDTO::fromEntity);
+    }
+
+    public Page<NotaEncomendaDTO> findByEmpresaIdDTO(Long empresaId, Pageable pageable) {
+        Page<NotaEncomenda> notas = notaEncomendaRepository.findByEmpresaId(empresaId, pageable);
+        return notas.map(NotaEncomendaDTO::fromEntity);
+    }
+
+    public List<NotaEncomendaDTO> findByCotacaoIdDTO(Long cotacaoId) {
+        List<NotaEncomenda> notas = notaEncomendaRepository.findByCotacaoId(cotacaoId);
+        return notas.stream()
+                .map(NotaEncomendaDTO::fromEntity)
+                .collect(Collectors.toList());
+    }
+
+    public List<NotaEncomendaDTO> findEncomendasAtrasadasDTO() {
+        List<NotaEncomenda> notas = notaEncomendaRepository.findEncomendasAtrasadas(LocalDate.now());
+        return notas.stream()
+                .map(NotaEncomendaDTO::fromEntity)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional
+    public NotaEncomendaDTO enviarParaProcessamentoDTO(Long id) {
+        NotaEncomenda nota = enviarParaProcessamento(id);
+        return NotaEncomendaDTO.fromEntity(nota);
+    }
+
+    @Transactional
+    public NotaEncomendaDTO marcarComoEnviadoDTO(Long id) {
+        NotaEncomenda nota = marcarComoEnviado(id);
+        return NotaEncomendaDTO.fromEntity(nota);
+    }
+
+    @Transactional
+    public NotaEncomendaDTO marcarComoEntregueDTO(Long id) {
+        NotaEncomenda nota = marcarComoEntregue(id);
+        return NotaEncomendaDTO.fromEntity(nota);
+    }
+
+    // ==================== MÉTODOS ORIGINAIS (MANTIDOS) ====================
 
     @Transactional
     public NotaEncomenda enviarParaProcessamento(Long id) {

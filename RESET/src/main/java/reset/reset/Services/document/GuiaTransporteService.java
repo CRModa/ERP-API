@@ -1,6 +1,5 @@
 package reset.reset.Services.document;
 
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -10,6 +9,8 @@ import reset.reset.Exceptions.BusinessException;
 import reset.reset.Models.document.Tipos.GuiaTransporte;
 import reset.reset.Repositories.document.GuiaTransporteRepository;
 import reset.reset.Services.base.BaseServiceImpl;
+import reset.reset.dto.document.GuiaTransporteDTO;
+import reset.reset.dto.request.GuiaTransporteRequest;
 
 import java.time.LocalDateTime;
 
@@ -47,6 +48,55 @@ public class GuiaTransporteService extends BaseServiceImpl<GuiaTransporte, Long,
         }
         return super.save(guiaTransporte);
     }
+
+    // ==================== MÉTODOS COM RETORNO DTO ====================
+
+    @Transactional
+    public GuiaTransporteDTO createGuiaTransporte(GuiaTransporteRequest request) {
+        GuiaTransporte guia = request.toEntity();
+        GuiaTransporte saved = save(guia);
+        return GuiaTransporteDTO.fromEntity(saved);
+    }
+
+    public GuiaTransporteDTO findByIdDTO(Long id) {
+        GuiaTransporte guia = findByIdOrThrow(id);
+        return GuiaTransporteDTO.fromEntity(guia);
+    }
+
+    public Page<GuiaTransporteDTO> findAllDTO(Pageable pageable) {
+        Page<GuiaTransporte> guias = findAll(pageable);
+        return guias.map(GuiaTransporteDTO::fromEntity);
+    }
+
+    public Page<GuiaTransporteDTO> findByEmpresaIdDTO(Long empresaId, Pageable pageable) {
+        Page<GuiaTransporte> guias = guiaTransporteRepository.findByEmpresaId(empresaId, pageable);
+        return guias.map(GuiaTransporteDTO::fromEntity);
+    }
+
+    public Page<GuiaTransporteDTO> findByEstadoDTO(String estado, Pageable pageable) {
+        Page<GuiaTransporte> guias = guiaTransporteRepository.findByEstado(estado, pageable);
+        return guias.map(GuiaTransporteDTO::fromEntity);
+    }
+
+    @Transactional
+    public GuiaTransporteDTO iniciarTransporteDTO(Long id) {
+        GuiaTransporte guia = iniciarTransporte(id);
+        return GuiaTransporteDTO.fromEntity(guia);
+    }
+
+    @Transactional
+    public GuiaTransporteDTO finalizarTransporteDTO(Long id) {
+        GuiaTransporte guia = finalizarTransporte(id);
+        return GuiaTransporteDTO.fromEntity(guia);
+    }
+
+    @Transactional
+    public GuiaTransporteDTO cancelarTransporteDTO(Long id, String observacao) {
+        GuiaTransporte guia = cancelarTransporte(id, observacao);
+        return GuiaTransporteDTO.fromEntity(guia);
+    }
+
+    // ==================== MÉTODOS ORIGINAIS (MANTIDOS) ====================
 
     @Transactional
     public GuiaTransporte iniciarTransporte(Long id) {

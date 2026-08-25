@@ -13,8 +13,8 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import reset.reset.Controllers.base.ApiResponse;
 import reset.reset.Controllers.base.BaseController;
-import reset.reset.Models.document.Tipos.Fatura;
 import reset.reset.Services.document.FaturaService;
+import reset.reset.dto.document.FaturaDTO;
 
 import java.util.List;
 
@@ -31,67 +31,67 @@ public class FaturaController extends BaseController {
     @GetMapping("/{id}")
     @Operation(summary = "Get invoice by ID")
     @PreAuthorize("hasPermission('DOCUMENTO_READ')")
-    public ResponseEntity<ApiResponse<Fatura>> findById(@PathVariable Long id) {
-        Fatura fatura = faturaService.findByIdOrThrow(id);
+    public ResponseEntity<ApiResponse<FaturaDTO>> findById(@PathVariable Long id) {
+        FaturaDTO fatura = faturaService.findByIdDTO(id);
         return success(fatura);
     }
 
     @GetMapping
     @Operation(summary = "Get all invoices with pagination")
     @PreAuthorize("hasPermission('DOCUMENTO_READ')")
-    public ResponseEntity<ApiResponse<Page<Fatura>>> findAll(
+    public ResponseEntity<ApiResponse<Page<FaturaDTO>>> findAll(
             @PageableDefault(size = 20, sort = "id", direction = Sort.Direction.DESC) Pageable pageable) {
-        Page<Fatura> faturas = faturaService.findAll(pageable);
+        Page<FaturaDTO> faturas = faturaService.findAllDTO(pageable);
         return success(faturas);
     }
 
     @GetMapping("/empresa/{empresaId}")
     @Operation(summary = "Get invoices by company")
     @PreAuthorize("hasPermission('DOCUMENTO_READ')")
-    public ResponseEntity<ApiResponse<Page<Fatura>>> findByEmpresa(
+    public ResponseEntity<ApiResponse<Page<FaturaDTO>>> findByEmpresa(
             @PathVariable Long empresaId,
             @PageableDefault(size = 20) Pageable pageable) {
-        Page<Fatura> faturas = faturaService.findByEmpresaId(empresaId, pageable);
+        Page<FaturaDTO> faturas = faturaService.findByEmpresaIdDTO(empresaId, pageable);
         return success(faturas);
     }
 
     @GetMapping("/nao-pagas")
     @Operation(summary = "Get unpaid invoices")
     @PreAuthorize("hasPermission('DOCUMENTO_READ')")
-    public ResponseEntity<ApiResponse<List<Fatura>>> findNaoPagas() {
-        List<Fatura> faturas = faturaService.findFaturasNaoPagas();
+    public ResponseEntity<ApiResponse<List<FaturaDTO>>> findNaoPagas() {
+        List<FaturaDTO> faturas = faturaService.findFaturasNaoPagasDTO();
         return success(faturas);
     }
 
     @GetMapping("/vencidas")
     @Operation(summary = "Get overdue invoices")
     @PreAuthorize("hasPermission('DOCUMENTO_READ')")
-    public ResponseEntity<ApiResponse<List<Fatura>>> findVencidas() {
-        List<Fatura> faturas = faturaService.findFaturasVencidas();
+    public ResponseEntity<ApiResponse<List<FaturaDTO>>> findVencidas() {
+        List<FaturaDTO> faturas = faturaService.findFaturasVencidasDTO();
         return success(faturas);
     }
 
     @GetMapping("/cliente/{clienteId}/nao-pagas")
     @Operation(summary = "Get unpaid invoices by client")
     @PreAuthorize("hasPermission('DOCUMENTO_READ')")
-    public ResponseEntity<ApiResponse<List<Fatura>>> findNaoPagasByCliente(@PathVariable Long clienteId) {
-        List<Fatura> faturas = faturaService.findFaturasNaoPagasByCliente(clienteId);
+    public ResponseEntity<ApiResponse<List<FaturaDTO>>> findNaoPagasByCliente(@PathVariable Long clienteId) {
+        List<FaturaDTO> faturas = faturaService.findFaturasNaoPagasByClienteDTO(clienteId);
         return success(faturas);
     }
 
     @PatchMapping("/{id}/pagar")
     @Operation(summary = "Mark invoice as paid")
     @PreAuthorize("hasPermission('DOCUMENTO_UPDATE')")
-    public ResponseEntity<ApiResponse<Fatura>> marcarComoPaga(@PathVariable Long id) {
-        Fatura fatura = faturaService.marcarComoPaga(id);
+    public ResponseEntity<ApiResponse<FaturaDTO>> marcarComoPaga(@PathVariable Long id) {
+        FaturaDTO fatura = faturaService.marcarComoPagaDTO(id);
         return success(fatura, "Fatura marked as paid");
     }
 
     @PatchMapping("/{id}/nao-pagar")
     @Operation(summary = "Mark invoice as unpaid")
     @PreAuthorize("hasPermission('DOCUMENTO_UPDATE')")
-    public ResponseEntity<ApiResponse<Fatura>> marcarComoNaoPaga(@PathVariable Long id) {
-        Fatura fatura = faturaService.marcarComoNaoPaga(id);
+    public ResponseEntity<ApiResponse<FaturaDTO>> marcarComoNaoPaga(@PathVariable Long id) {
+        FaturaDTO fatura = faturaService.marcarComoNaoPagaDTO(id);
         return success(fatura, "Fatura marked as unpaid");
     }
 }

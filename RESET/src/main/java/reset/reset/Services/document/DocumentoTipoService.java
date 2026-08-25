@@ -1,15 +1,18 @@
 package reset.reset.Services.document;
 
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import reset.reset.Exceptions.BusinessException;
 import reset.reset.Models.document.DocumentoTipo;
 import reset.reset.Repositories.document.DocumentoTipoRepository;
 import reset.reset.Services.base.BaseServiceImpl;
+import reset.reset.dto.document.DocumentoTipoDTO;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @Slf4j
@@ -45,14 +48,17 @@ public class DocumentoTipoService extends BaseServiceImpl<DocumentoTipo, Long, D
     }
 
     private void validateDescricaoUniqueness(String descricao, Long excludeId) {
-        // Check if description already exists (using custom query)
-        // For simplicity, we'll assume we need to add this method to repository
+        documentoTipoRepository.findByDescricao(descricao)
+                .ifPresent(tipo -> {
+                    if (excludeId == null || !tipo.getId().equals(excludeId)) {
+                        throw new BusinessException("Document type with description '" + descricao + "' already exists");
+                    }
+                });
     }
 
     @Override
     @Transactional
     public DocumentoTipo save(DocumentoTipo tipo) {
-        // Set default values
         if (tipo.getNumeracaoAutomatica() == null) {
             tipo.setNumeracaoAutomatica(true);
         }
@@ -64,6 +70,41 @@ public class DocumentoTipoService extends BaseServiceImpl<DocumentoTipo, Long, D
         }
         return super.save(tipo);
     }
+
+    // ==================== MÉTODOS COM RETORNO DTO ====================
+
+    public Page<DocumentoTipoDTO> findAllDTO(Pageable pageable) {
+        Page<DocumentoTipo> tipos = findAll(pageable);
+        return tipos.map(DocumentoTipoDTO::fromEntity);
+    }
+
+    public DocumentoTipoDTO findByIdDTO(Long id) {
+        DocumentoTipo tipo = findByIdOrThrow(id);
+        return DocumentoTipoDTO.fromEntity(tipo);
+    }
+
+    public List<DocumentoTipoDTO> findByClasseDTO(DocumentoTipo.ClasseDocumento classe) {
+        List<DocumentoTipo> tipos = documentoTipoRepository.findByClasse(classe);
+        return tipos.stream()
+                .map(DocumentoTipoDTO::fromEntity)
+                .collect(Collectors.toList());
+    }
+
+    public List<DocumentoTipoDTO> findTiposQueMovimentamStockDTO() {
+        List<DocumentoTipo> tipos = documentoTipoRepository.findByMovimentaStockTrue();
+        return tipos.stream()
+                .map(DocumentoTipoDTO::fromEntity)
+                .collect(Collectors.toList());
+    }
+
+    public List<DocumentoTipoDTO> findTiposQueAfetamContasDTO() {
+        List<DocumentoTipo> tipos = documentoTipoRepository.findByAfetaContasTrue();
+        return tipos.stream()
+                .map(DocumentoTipoDTO::fromEntity)
+                .collect(Collectors.toList());
+    }
+
+    // ==================== MÉTODOS ORIGINAIS (MANTIDOS) ====================
 
     public List<DocumentoTipo> findByClasse(DocumentoTipo.ClasseDocumento classe) {
         return documentoTipoRepository.findByClasse(classe);
@@ -92,20 +133,18 @@ public class DocumentoTipoService extends BaseServiceImpl<DocumentoTipo, Long, D
 
     @Transactional
     public void inicializarTiposDocumento() {
-        // Tipos de Venda
-        criarTipoPadrao("Fatura", DocumentoTipo.ClasseDocumento.VENDA, "FAT", true, true);
-        criarTipoPadrao("Fatura Proforma", DocumentoTipo.ClasseDocumento.VENDA, "FP", false, false);
-        criarTipoPadrao("Nota de Crédito", DocumentoTipo.ClasseDocumento.VENDA, "NC", true, true);
-        criarTipoPadrao("Nota de Débito", DocumentoTipo.ClasseDocumento.VENDA, "ND", true, true);
-        criarTipoPadrao("Recibo", DocumentoTipo.ClasseDocumento.VENDA, "REC", false, true);
-        criarTipoPadrao("Orçamento", DocumentoTipo.ClasseDocumento.VENDA, "ORC", false, false);
-        criarTipoPadrao("Guia de Transporte", DocumentoTipo.ClasseDocumento.VENDA, "GT", false, false);
-
-        // Tipos de Compra
-        criarTipoPadrao("Compra", DocumentoTipo.ClasseDocumento.COMPRA, "COM", true, true);
-
-        // Tipos Financeiros
-        criarTipoPadrao("Pagamento", DocumentoTipo.ClasseDocumento.FINANCEIRO, "PAG", false, true);
-        criarTipoPadrao("Recebimento", DocumentoTipo.ClasseDocumento.FINANCEIRO, "REC", false, true);
+        if (documentoTipoRepository.count() == 0) {
+            criarTipoPadrao("Fatura", DocumentoTipo.ClasseDocumento.VENDA, "FAT", true, true);
+            criarTipoPadrao("Fatura Proforma", DocumentoTipo.ClasseDocumento.VENDA, "FP", false, false);
+            criarTipoPadrao("Nota de Crédito", DocumentoTipo.ClasseDocumento.VENDA, "NC", true, true);
+            criarTipoPadrao("Nota de Débito", DocumentoTipo.ClasseDocumento.VENDA, "ND", true, true);
+            criarTipoPadrao("Recibo", DocumentoTipo.ClasseDocumento.VENDA, "REC", false, true);
+            criarTipoPadrao("Orçamento", DocumentoTipo.ClasseDocumento.VENDA, "ORC", false, false);
+            criarTipoPadrao("Guia de Transporte", DocumentoTipo.ClasseDocumento.VENDA, "GT", false, false);
+            criarTipoPadrao("Compra", DocumentoTipo.ClasseDocumento.COMPRA, "COM", true, true);
+            criarTipoPadrao("Pagamento", DocumentoTipo.ClasseDocumento.FINANCEIRO, "PAG", false, true);
+            criarTipoPadrao("Recebimento", DocumentoTipo.ClasseDocumento.FINANCEIRO, "REC", false, true);
+            log.info("Default document types initialized");
+        }
     }
 }

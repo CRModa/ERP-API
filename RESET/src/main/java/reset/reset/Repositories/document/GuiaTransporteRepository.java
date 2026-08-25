@@ -9,4 +9,6 @@ import reset.reset.Repositories.BaseRepository;
 @Repository
 public interface GuiaTransporteRepository extends BaseRepository<GuiaTransporte, Long> {
     Page<GuiaTransporte> findByEmpresaId(Long empresaId, Pageable pageable);
+
+    Page<GuiaTransporte> findByEstado(String estado, Pageable pageable);
 }

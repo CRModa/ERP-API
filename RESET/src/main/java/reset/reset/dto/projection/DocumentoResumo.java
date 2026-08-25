@@ -17,4 +17,6 @@ public interface DocumentoResumo {
     String getClienteNome();
 
     String getTipoDescricao();
+
+    Integer getQuantidadeItens();
 }

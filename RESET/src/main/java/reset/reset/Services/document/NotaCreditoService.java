@@ -1,6 +1,5 @@
 package reset.reset.Services.document;
 
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -14,12 +13,15 @@ import reset.reset.Models.document.Tipos.NotaCredito;
 import reset.reset.Repositories.document.DocumentoRepository;
 import reset.reset.Repositories.document.NotaCreditoRepository;
 import reset.reset.Services.base.BaseServiceImpl;
+import reset.reset.dto.document.NotaCreditoDTO;
+import reset.reset.dto.request.NotaCreditoRequest;
 
 @Service
 @Slf4j
 public class NotaCreditoService extends BaseServiceImpl<NotaCredito, Long, NotaCreditoRepository> {
 
     private final NotaCreditoRepository notaCreditoRepository;
+
     @Autowired
     private DocumentoRepository documentoRepository;
 
@@ -34,11 +36,9 @@ public class NotaCreditoService extends BaseServiceImpl<NotaCredito, Long, NotaC
             throw new BusinessException("Original document ID is required");
         }
 
-        // Validate original document exists
         Documento originalDoc = documentoRepository.findById(notaCredito.getDocumentoOrigemId())
                 .orElseThrow(() -> new EntityNotFoundException("Original document not found"));
 
-        // Check if credit note already exists for this document
         if (notaCreditoRepository.existsByDocumentoOrigemId(notaCredito.getDocumentoOrigemId())) {
             throw new BusinessException("A credit note already exists for this document");
         }
@@ -54,13 +54,56 @@ public class NotaCreditoService extends BaseServiceImpl<NotaCredito, Long, NotaC
         if (notaCredito.getEstado() == null) {
             notaCredito.setEstado("PENDENTE");
         }
-        // Set the total from original document or calculate
         Documento originalDoc = documentoRepository.findById(notaCredito.getDocumentoOrigemId()).orElse(null);
         if (originalDoc != null && notaCredito.getTotal() == null) {
             notaCredito.setTotal(originalDoc.getTotal());
         }
         return super.save(notaCredito);
     }
+
+    // ==================== MÉTODOS COM RETORNO DTO ====================
+
+    @Transactional
+    public NotaCreditoDTO createNotaCredito(NotaCreditoRequest request) {
+        NotaCredito nota = request.toEntity();
+        NotaCredito saved = save(nota);
+        return NotaCreditoDTO.fromEntity(saved);
+    }
+
+    public NotaCreditoDTO findByIdDTO(Long id) {
+        NotaCredito nota = findByIdOrThrow(id);
+        return NotaCreditoDTO.fromEntity(nota);
+    }
+
+    public Page<NotaCreditoDTO> findAllDTO(Pageable pageable) {
+        Page<NotaCredito> notas = findAll(pageable);
+        return notas.map(NotaCreditoDTO::fromEntity);
+    }
+
+    public Page<NotaCreditoDTO> findByEmpresaIdDTO(Long empresaId, Pageable pageable) {
+        Page<NotaCredito> notas = notaCreditoRepository.findByEmpresaId(empresaId, pageable);
+        return notas.map(NotaCreditoDTO::fromEntity);
+    }
+
+    public NotaCreditoDTO findByDocumentoOrigemIdDTO(Long documentoOrigemId) {
+        NotaCredito nota = notaCreditoRepository.findByDocumentoOrigemId(documentoOrigemId)
+                .orElseThrow(() -> new EntityNotFoundException("Credit note not found for document: " + documentoOrigemId));
+        return NotaCreditoDTO.fromEntity(nota);
+    }
+
+    @Transactional
+    public NotaCreditoDTO aprovarNotaCreditoDTO(Long id) {
+        NotaCredito nota = aprovarNotaCredito(id);
+        return NotaCreditoDTO.fromEntity(nota);
+    }
+
+    @Transactional
+    public NotaCreditoDTO rejeitarNotaCreditoDTO(Long id, String motivo) {
+        NotaCredito nota = rejeitarNotaCredito(id, motivo);
+        return NotaCreditoDTO.fromEntity(nota);
+    }
+
+    // ==================== MÉTODOS ORIGINAIS (MANTIDOS) ====================
 
     @Transactional
     public NotaCredito aprovarNotaCredito(Long id) {

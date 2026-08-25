@@ -16,8 +16,9 @@ import reset.reset.Controllers.base.ApiResponse;
 import reset.reset.Controllers.base.BaseController;
 import reset.reset.Models.document.Documento;
 import reset.reset.Services.document.DocumentoService;
+import reset.reset.dto.document.DocumentoDTO;
+import reset.reset.dto.document.DocumentoResumoDTO;
 import reset.reset.dto.filter.DocumentoFilter;
-import reset.reset.dto.projection.DocumentoResumo;
 import reset.reset.dto.request.DocumentoRequest;
 
 import java.math.BigDecimal;
@@ -36,70 +37,90 @@ public class DocumentoController extends BaseController {
     @PostMapping
     @Operation(summary = "Create a new document")
     @PreAuthorize("hasPermission('DOCUMENTO_CREATE')")
-    public ResponseEntity<ApiResponse<Documento>> create(@Valid @RequestBody DocumentoRequest request) {
+    public ResponseEntity<ApiResponse<DocumentoDTO>> create(@Valid @RequestBody DocumentoRequest request) {
         log.info("Creating new documento");
         Documento documento = request.toEntity();
         Documento saved = documentoService.save(documento);
-        return created(saved);
+        return created(DocumentoDTO.fromEntity(saved));
     }
 
     @PutMapping("/{id}")
     @Operation(summary = "Update an existing document")
     @PreAuthorize("hasPermission('DOCUMENTO_UPDATE')")
-    public ResponseEntity<ApiResponse<Documento>> update(@PathVariable Long id,
-                                                         @Valid @RequestBody DocumentoRequest request) {
+    public ResponseEntity<ApiResponse<DocumentoDTO>> update(@PathVariable Long id,
+                                                            @Valid @RequestBody DocumentoRequest request) {
         log.info("Updating documento with id: {}", id);
         Documento documento = request.toEntity();
         documento.setId(id);
         Documento updated = documentoService.update(id, documento);
-        return success(updated, "Documento updated successfully");
+        return success(DocumentoDTO.fromEntity(updated), "Documento updated successfully");
     }
 
     @GetMapping("/{id}")
     @Operation(summary = "Get document by ID")
     @PreAuthorize("hasPermission('DOCUMENTO_READ')")
-    public ResponseEntity<ApiResponse<Documento>> findById(@PathVariable Long id) {
+    public ResponseEntity<ApiResponse<DocumentoDTO>> findById(@PathVariable Long id) {
         Documento documento = documentoService.findByIdOrThrow(id);
-        return success(documento);
+        return success(DocumentoDTO.fromEntity(documento));
     }
 
     @GetMapping
     @Operation(summary = "Get all documents with pagination and filtering")
     @PreAuthorize("hasPermission('DOCUMENTO_READ')")
-    public ResponseEntity<ApiResponse<Page<Documento>>> findAll(
+    public ResponseEntity<ApiResponse<Page<DocumentoDTO>>> findAll(
             @PageableDefault(size = 20, sort = "id", direction = Sort.Direction.DESC) Pageable pageable,
             DocumentoFilter filter) {
-        Page<Documento> documentos = documentoService.filter(filter);
+        Page<DocumentoDTO> documentos = documentoService.filterDTO(filter);
         return success(documentos);
     }
 
     @GetMapping("/empresa/{empresaId}/resumo")
     @Operation(summary = "Get document summary by company")
     @PreAuthorize("hasPermission('DOCUMENTO_READ')")
-    public ResponseEntity<ApiResponse<Page<DocumentoResumo>>> findResumoByEmpresa(
+    public ResponseEntity<ApiResponse<Page<DocumentoResumoDTO>>> findResumoByEmpresa(
             @PathVariable Long empresaId,
             @PageableDefault(size = 20) Pageable pageable) {
-        Page<DocumentoResumo> documentos = documentoService.findDocumentoResumoByEmpresaId(empresaId, pageable);
+        Page<DocumentoResumoDTO> documentos = documentoService.findDocumentoResumoByEmpresaIdDTO(empresaId, pageable);
         return success(documentos);
     }
 
     @GetMapping("/cliente/{clienteId}")
     @Operation(summary = "Get documents by client")
     @PreAuthorize("hasPermission('DOCUMENTO_READ')")
-    public ResponseEntity<ApiResponse<Page<Documento>>> findByCliente(
+    public ResponseEntity<ApiResponse<Page<DocumentoDTO>>> findByCliente(
             @PathVariable Long clienteId,
             @PageableDefault(size = 20) Pageable pageable) {
-        Page<Documento> documentos = documentoService.findByClienteId(clienteId, pageable);
+        Page<DocumentoDTO> documentos = documentoService.findByClienteIdDTO(clienteId, pageable);
+        return success(documentos);
+    }
+
+    @GetMapping("/tipo/{tipoId}")
+    @Operation(summary = "Get documents by type")
+    @PreAuthorize("hasPermission('DOCUMENTO_READ')")
+    public ResponseEntity<ApiResponse<Page<DocumentoDTO>>> findByTipo(
+            @PathVariable Long tipoId,
+            @PageableDefault(size = 20) Pageable pageable) {
+        Page<DocumentoDTO> documentos = documentoService.findByTipoIdDTO(tipoId, pageable);
+        return success(documentos);
+    }
+
+    @GetMapping("/estado/{estado}")
+    @Operation(summary = "Get documents by status")
+    @PreAuthorize("hasPermission('DOCUMENTO_READ')")
+    public ResponseEntity<ApiResponse<Page<DocumentoDTO>>> findByEstado(
+            @PathVariable String estado,
+            @PageableDefault(size = 20) Pageable pageable) {
+        Page<DocumentoDTO> documentos = documentoService.findByEstadoDTO(estado, pageable);
         return success(documentos);
     }
 
     @PatchMapping("/{id}/estado")
     @Operation(summary = "Update document status")
     @PreAuthorize("hasPermission('DOCUMENTO_UPDATE')")
-    public ResponseEntity<ApiResponse<Documento>> updateEstado(@PathVariable Long id,
-                                                               @RequestParam String estado) {
+    public ResponseEntity<ApiResponse<DocumentoDTO>> updateEstado(@PathVariable Long id,
+                                                                  @RequestParam String estado) {
         Documento documento = documentoService.mudarEstado(id, estado);
-        return success(documento, "Estado updated successfully");
+        return success(DocumentoDTO.fromEntity(documento), "Estado updated successfully");
     }
 
     @GetMapping("/empresa/{empresaId}/total-periodo")
@@ -111,6 +132,17 @@ public class DocumentoController extends BaseController {
             @RequestParam LocalDate fim) {
         BigDecimal total = documentoService.sumTotalByEmpresaAndPeriodo(empresaId, inicio, fim);
         return success(total);
+    }
+
+    @GetMapping("/empresa/{empresaId}/count-periodo")
+    @Operation(summary = "Get document count by company and period")
+    @PreAuthorize("hasPermission('DOCUMENTO_READ')")
+    public ResponseEntity<ApiResponse<Long>> getCountByEmpresaAndPeriodo(
+            @PathVariable Long empresaId,
+            @RequestParam LocalDate inicio,
+            @RequestParam LocalDate fim) {
+        long count = documentoService.countByEmpresaAndPeriodo(empresaId, inicio, fim);
+        return success(count);
     }
 
     @DeleteMapping("/{id}")

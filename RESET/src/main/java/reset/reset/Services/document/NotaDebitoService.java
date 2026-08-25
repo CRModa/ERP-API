@@ -13,12 +13,15 @@ import reset.reset.Models.document.Tipos.NotaDebito;
 import reset.reset.Repositories.document.DocumentoRepository;
 import reset.reset.Repositories.document.NotaDebitoRepository;
 import reset.reset.Services.base.BaseServiceImpl;
+import reset.reset.dto.document.NotaDebitoDTO;
+import reset.reset.dto.request.NotaDebitoRequest;
 
 @Service
 @Slf4j
 public class NotaDebitoService extends BaseServiceImpl<NotaDebito, Long, NotaDebitoRepository> {
 
     private final NotaDebitoRepository notaDebitoRepository;
+
     @Autowired
     private DocumentoRepository documentoRepository;
 
@@ -33,11 +36,9 @@ public class NotaDebitoService extends BaseServiceImpl<NotaDebito, Long, NotaDeb
             throw new BusinessException("Original document ID is required");
         }
 
-        // Validate original document exists
         Documento originalDoc = documentoRepository.findById(notaDebito.getDocumentoOrigemId())
                 .orElseThrow(() -> new EntityNotFoundException("Original document not found"));
 
-        // Check if debit note already exists for this document
         if (notaDebitoRepository.existsByDocumentoOrigemId(notaDebito.getDocumentoOrigemId())) {
             throw new BusinessException("A debit note already exists for this document");
         }
@@ -53,13 +54,56 @@ public class NotaDebitoService extends BaseServiceImpl<NotaDebito, Long, NotaDeb
         if (notaDebito.getEstado() == null) {
             notaDebito.setEstado("PENDENTE");
         }
-        // Set the total from original document or calculate
         Documento originalDoc = documentoRepository.findById(notaDebito.getDocumentoOrigemId()).orElse(null);
         if (originalDoc != null && notaDebito.getTotal() == null) {
             notaDebito.setTotal(originalDoc.getTotal());
         }
         return super.save(notaDebito);
     }
+
+    // ==================== MÉTODOS COM RETORNO DTO ====================
+
+    @Transactional
+    public NotaDebitoDTO createNotaDebito(NotaDebitoRequest request) {
+        NotaDebito nota = request.toEntity();
+        NotaDebito saved = save(nota);
+        return NotaDebitoDTO.fromEntity(saved);
+    }
+
+    public NotaDebitoDTO findByIdDTO(Long id) {
+        NotaDebito nota = findByIdOrThrow(id);
+        return NotaDebitoDTO.fromEntity(nota);
+    }
+
+    public Page<NotaDebitoDTO> findAllDTO(Pageable pageable) {
+        Page<NotaDebito> notas = findAll(pageable);
+        return notas.map(NotaDebitoDTO::fromEntity);
+    }
+
+    public Page<NotaDebitoDTO> findByEmpresaIdDTO(Long empresaId, Pageable pageable) {
+        Page<NotaDebito> notas = notaDebitoRepository.findByEmpresaId(empresaId, pageable);
+        return notas.map(NotaDebitoDTO::fromEntity);
+    }
+
+    public NotaDebitoDTO findByDocumentoOrigemIdDTO(Long documentoOrigemId) {
+        NotaDebito nota = notaDebitoRepository.findByDocumentoOrigemId(documentoOrigemId)
+                .orElseThrow(() -> new EntityNotFoundException("Debit note not found for document: " + documentoOrigemId));
+        return NotaDebitoDTO.fromEntity(nota);
+    }
+
+    @Transactional
+    public NotaDebitoDTO aprovarNotaDebitoDTO(Long id) {
+        NotaDebito nota = aprovarNotaDebito(id);
+        return NotaDebitoDTO.fromEntity(nota);
+    }
+
+    @Transactional
+    public NotaDebitoDTO rejeitarNotaDebitoDTO(Long id, String motivo) {
+        NotaDebito nota = rejeitarNotaDebito(id, motivo);
+        return NotaDebitoDTO.fromEntity(nota);
+    }
+
+    // ==================== MÉTODOS ORIGINAIS (MANTIDOS) ====================
 
     @Transactional
     public NotaDebito aprovarNotaDebito(Long id) {

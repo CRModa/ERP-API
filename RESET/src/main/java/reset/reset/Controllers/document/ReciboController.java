@@ -14,8 +14,8 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import reset.reset.Controllers.base.ApiResponse;
 import reset.reset.Controllers.base.BaseController;
-import reset.reset.Models.document.Tipos.Recibo;
 import reset.reset.Services.document.ReciboService;
+import reset.reset.dto.document.ReciboDTO;
 import reset.reset.dto.request.ReciboRequest;
 
 import java.time.LocalDateTime;
@@ -34,55 +34,62 @@ public class ReciboController extends BaseController {
     @PostMapping
     @Operation(summary = "Create a new receipt")
     @PreAuthorize("hasPermission('DOCUMENTO_CREATE')")
-    public ResponseEntity<ApiResponse<Recibo>> create(@Valid @RequestBody ReciboRequest request) {
+    public ResponseEntity<ApiResponse<ReciboDTO>> create(@Valid @RequestBody ReciboRequest request) {
         log.info("Creating new recibo");
-        Recibo recibo = request.toEntity();
-        Recibo saved = reciboService.save(recibo);
-        return created(saved);
+        ReciboDTO dto = reciboService.createRecibo(request);
+        return created(dto);
     }
 
     @GetMapping("/{id}")
     @Operation(summary = "Get receipt by ID")
     @PreAuthorize("hasPermission('DOCUMENTO_READ')")
-    public ResponseEntity<ApiResponse<Recibo>> findById(@PathVariable Long id) {
-        Recibo recibo = reciboService.findByIdOrThrow(id);
-        return success(recibo);
+    public ResponseEntity<ApiResponse<ReciboDTO>> findById(@PathVariable Long id) {
+        ReciboDTO dto = reciboService.findByIdDTO(id);
+        return success(dto);
     }
 
     @GetMapping
     @Operation(summary = "Get all receipts with pagination")
     @PreAuthorize("hasPermission('DOCUMENTO_READ')")
-    public ResponseEntity<ApiResponse<Page<Recibo>>> findAll(
+    public ResponseEntity<ApiResponse<Page<ReciboDTO>>> findAll(
             @PageableDefault(size = 20, sort = "id", direction = Sort.Direction.DESC) Pageable pageable) {
-        Page<Recibo> recibos = reciboService.findAll(pageable);
+        Page<ReciboDTO> recibos = reciboService.findAllDTO(pageable);
         return success(recibos);
     }
 
     @GetMapping("/empresa/{empresaId}")
     @Operation(summary = "Get receipts by company")
     @PreAuthorize("hasPermission('DOCUMENTO_READ')")
-    public ResponseEntity<ApiResponse<Page<Recibo>>> findByEmpresa(
+    public ResponseEntity<ApiResponse<Page<ReciboDTO>>> findByEmpresa(
             @PathVariable Long empresaId,
             @PageableDefault(size = 20) Pageable pageable) {
-        Page<Recibo> recibos = reciboService.findByEmpresaId(empresaId, pageable);
+        Page<ReciboDTO> recibos = reciboService.findByEmpresaIdDTO(empresaId, pageable);
         return success(recibos);
     }
 
     @GetMapping("/forma-pagamento/{formaPagamento}")
     @Operation(summary = "Get receipts by payment method")
     @PreAuthorize("hasPermission('DOCUMENTO_READ')")
-    public ResponseEntity<ApiResponse<List<Recibo>>> findByFormaPagamento(@PathVariable String formaPagamento) {
-        List<Recibo> recibos = reciboService.findByFormaPagamento(formaPagamento);
+    public ResponseEntity<ApiResponse<List<ReciboDTO>>> findByFormaPagamento(@PathVariable String formaPagamento) {
+        List<ReciboDTO> recibos = reciboService.findByFormaPagamentoDTO(formaPagamento);
         return success(recibos);
     }
 
     @GetMapping("/periodo")
     @Operation(summary = "Get receipts by date range")
     @PreAuthorize("hasPermission('DOCUMENTO_READ')")
-    public ResponseEntity<ApiResponse<List<Recibo>>> findByPeriodo(
+    public ResponseEntity<ApiResponse<List<ReciboDTO>>> findByPeriodo(
             @RequestParam LocalDateTime inicio,
             @RequestParam LocalDateTime fim) {
-        List<Recibo> recibos = reciboService.findByDataPagamentoBetween(inicio, fim);
+        List<ReciboDTO> recibos = reciboService.findByDataPagamentoBetweenDTO(inicio, fim);
+        return success(recibos);
+    }
+
+    @GetMapping("/referencia/{referencia}")
+    @Operation(summary = "Get receipts by payment reference")
+    @PreAuthorize("hasPermission('DOCUMENTO_READ')")
+    public ResponseEntity<ApiResponse<List<ReciboDTO>>> findByReferencia(@PathVariable String referencia) {
+        List<ReciboDTO> recibos = reciboService.findByReferenciaPagamentoDTO(referencia);
         return success(recibos);
     }
 }

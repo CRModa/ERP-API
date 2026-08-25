@@ -9,6 +9,8 @@ import reset.reset.Exceptions.BusinessException;
 import reset.reset.Models.document.Tipos.FaturaProforma;
 import reset.reset.Repositories.document.FaturaProformaRepository;
 import reset.reset.Services.base.BaseServiceImpl;
+import reset.reset.dto.document.FaturaProformaDTO;
+import reset.reset.dto.request.FaturaProformaRequest;
 
 @Service
 @Slf4j
@@ -40,6 +42,44 @@ public class FaturaProformaService extends BaseServiceImpl<FaturaProforma, Long,
         }
         return super.save(faturaProforma);
     }
+
+    // ==================== MÉTODOS COM RETORNO DTO ====================
+
+    @Transactional
+    public FaturaProformaDTO createProforma(FaturaProformaRequest request) {
+        FaturaProforma faturaProforma = request.toEntity();
+        FaturaProforma saved = save(faturaProforma);
+        return FaturaProformaDTO.fromEntity(saved);
+    }
+
+    public FaturaProformaDTO findByIdDTO(Long id) {
+        FaturaProforma faturaProforma = findByIdOrThrow(id);
+        return FaturaProformaDTO.fromEntity(faturaProforma);
+    }
+
+    public Page<FaturaProformaDTO> findAllDTO(Pageable pageable) {
+        Page<FaturaProforma> faturas = findAll(pageable);
+        return faturas.map(FaturaProformaDTO::fromEntity);
+    }
+
+    public Page<FaturaProformaDTO> findByEmpresaIdDTO(Long empresaId, Pageable pageable) {
+        Page<FaturaProforma> faturas = faturaProformaRepository.findByEmpresaId(empresaId, pageable);
+        return faturas.map(FaturaProformaDTO::fromEntity);
+    }
+
+    @Transactional
+    public FaturaProformaDTO aprovarFaturaProformaDTO(Long id) {
+        FaturaProforma faturaProforma = aprovarFaturaProforma(id);
+        return FaturaProformaDTO.fromEntity(faturaProforma);
+    }
+
+    @Transactional
+    public FaturaProformaDTO converterParaFaturaDTO(Long id, Long faturaId) {
+        FaturaProforma faturaProforma = converterParaFatura(id, faturaId);
+        return FaturaProformaDTO.fromEntity(faturaProforma);
+    }
+
+    // ==================== MÉTODOS ORIGINAIS (MANTIDOS) ====================
 
     @Transactional
     public FaturaProforma converterParaFatura(Long id, Long faturaId) {
