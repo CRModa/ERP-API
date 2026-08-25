@@ -55,9 +55,9 @@ public class PedidoController extends BaseController {
     @GetMapping
     @Operation(summary = "Listar pedidos com paginação")
     @PreAuthorize("hasPermission('PEDIDO_READ')")
-    public ResponseEntity<ApiResponse<Page<PedidoResumoDTO>>> findAll(
+    public ResponseEntity<ApiResponse<Page<PedidoDTO>>> findAll(
             @PageableDefault(size = 20) Pageable pageable) {
-        Page<PedidoResumoDTO> pedidos = pedidoService.findPedidosResumoByEmpresa(pageable);
+        Page<PedidoDTO> pedidos = pedidoService.findPedidosResumoByEmpresa(pageable);
         return success(pedidos);
     }
 

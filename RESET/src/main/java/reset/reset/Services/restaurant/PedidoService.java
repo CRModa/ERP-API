@@ -277,10 +277,10 @@ public class PedidoService extends BaseServiceImpl<Pedido, Long, PedidoRepositor
         return PedidoDTO.fromEntity(pedido);
     }
 
-    public Page<PedidoResumoDTO> findPedidosResumoByEmpresa(Pageable pageable) {
+    public Page<PedidoDTO> findPedidosResumoByEmpresa(Pageable pageable) {
         Long empresaId = getCurrentEmpresaId();
         Page<Pedido> pedidos = pedidoRepository.findByEmpresaId(empresaId, pageable);
-        return pedidos.map(PedidoResumoDTO::fromEntity);
+        return pedidos.map(PedidoDTO::fromEntity);
     }
 
     public List<PedidoDTO> findPedidosAtivosByMesaDTO(Long mesaId) {
