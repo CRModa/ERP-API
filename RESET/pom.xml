@@ -96,6 +96,13 @@
             <type>pom</type>
         </dependency>
 
+        <!-- iText 7 pdfHTML (conversão HTML para PDF) -->
+        <dependency>
+            <groupId>com.itextpdf</groupId>
+            <artifactId>html2pdf</artifactId>
+            <version>4.0.5</version>
+        </dependency>
+
         <!-- XMLWorker (para compatibilidade com iText 5) -->
         <dependency>
             <groupId>com.itextpdf.tool</groupId>

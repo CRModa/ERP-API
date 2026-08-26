@@ -8,14 +8,12 @@ import com.itextpdf.kernel.pdf.PdfDocument;
 import com.itextpdf.kernel.pdf.PdfWriter;
 import com.itextpdf.layout.Document;
 import com.itextpdf.layout.borders.Border;
-import com.itextpdf.layout.element.Cell;
-import com.itextpdf.layout.element.Image;
-import com.itextpdf.layout.element.LineSeparator;
-import com.itextpdf.layout.element.Paragraph;
-import com.itextpdf.layout.element.Table;
+import com.itextpdf.layout.element.*;
 import com.itextpdf.layout.properties.TextAlignment;
 import com.itextpdf.layout.properties.UnitValue;
 import com.itextpdf.layout.properties.VerticalAlignment;
+import com.itextpdf.html2pdf.ConverterProperties;
+import com.itextpdf.html2pdf.HtmlConverter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -158,8 +156,11 @@ public class PDFService {
             document.add(headerTable);
 
             // Linha separadora
-            LineSeparator lineSeparator = new LineSeparator();
-            document.add(lineSeparator);
+            Div lineDiv = new Div();
+            lineDiv.setBorderBottom(new com.itextpdf.layout.borders.SolidBorder(1));
+            lineDiv.setWidth(UnitValue.createPercentValue(100));
+            lineDiv.setHeight(1);
+            document.add(lineDiv);
 
             // ===== TÍTULO DO DOCUMENTO =====
             Paragraph titulo = new Paragraph(
@@ -206,7 +207,7 @@ public class PDFService {
             Cell cellCliente = new Cell();
             cellCliente.setBorder(Border.NO_BORDER);
             cellCliente.setPadding(2);
-            cellCliente.setColspan(2);
+//            cellCliente.setColspan(2);
             cellCliente.add(new Paragraph("Cliente: ")
                     .setFont(fontBold)
                     .setFontSize(10));
@@ -220,7 +221,7 @@ public class PDFService {
                 Cell cellNuit = new Cell();
                 cellNuit.setBorder(Border.NO_BORDER);
                 cellNuit.setPadding(2);
-                cellNuit.setColspan(2);
+//                cellNuit.setColspan(2);
                 cellNuit.add(new Paragraph("NUIT Cliente: ")
                         .setFont(fontBold)
                         .setFontSize(10));
@@ -290,8 +291,8 @@ public class PDFService {
                 // Desconto
                 Cell descCellValor = new Cell();
                 descCellValor.add(new Paragraph(
-                        item.getDescontoValor() != null && item.getDescontoValor().compareTo(BigDecimal.ZERO) > 0 ?
-                                currencyFormat.format(item.getDescontoValor()) : "-"
+                        item.getDesconto() != null && item.getDesconto().getValor().compareTo(BigDecimal.ZERO) > 0 ?
+                                currencyFormat.format(item.getDesconto().getValor()) : "-"
                 ).setFont(fontNormal).setFontSize(10));
                 descCellValor.setPadding(5);
                 descCellValor.setTextAlignment(TextAlignment.RIGHT);
@@ -299,8 +300,8 @@ public class PDFService {
 
                 // Subtotal
                 BigDecimal subtotal = item.getPrecoUnitario().multiply(item.getQuantidade());
-                if (item.getDescontoValor() != null) {
-                    subtotal = subtotal.subtract(item.getDescontoValor());
+                if (item.getDesconto() != null) {
+                    subtotal = subtotal.subtract(item.getDesconto().getValor());
                 }
                 Cell subtotalCell = new Cell();
                 subtotalCell.add(new Paragraph(
@@ -331,7 +332,7 @@ public class PDFService {
 
             Cell subTotalValor = new Cell();
             subTotalValor.add(new Paragraph(
-                    currencyFormat.format(documento.getSubtotal() != null ? documento.getSubtotal() : BigDecimal.ZERO)
+                    currencyFormat.format(documento.getTotal() != null ? documento.getTotal() : BigDecimal.ZERO)
             ).setFont(fontNormal).setFontSize(10));
             subTotalValor.setBorder(Border.NO_BORDER);
             subTotalValor.setPadding(5);
@@ -339,7 +340,7 @@ public class PDFService {
             totalTable.addCell(subTotalValor);
 
             // Desconto
-            if (documento.getDesconto() != null && documento.getDesconto().compareTo(BigDecimal.ZERO) > 0) {
+            if (documento.getCliente().getDescontoPadrao() != null && documento.getCliente().getDescontoPadrao().compareTo(BigDecimal.ZERO) > 0) {
                 Cell descTotalLabel = new Cell();
                 descTotalLabel.add(new Paragraph("Desconto:")
                         .setFont(fontBold)
@@ -351,7 +352,7 @@ public class PDFService {
 
                 Cell descTotalValor = new Cell();
                 descTotalValor.add(new Paragraph(
-                        "- " + currencyFormat.format(documento.getDesconto())
+                        "- " + currencyFormat.format(documento.getCliente().getDescontoPadrao())
                 ).setFont(fontNormal).setFontSize(10));
                 descTotalValor.setBorder(Border.NO_BORDER);
                 descTotalValor.setPadding(5);
@@ -360,25 +361,25 @@ public class PDFService {
             }
 
             // Taxa de Serviço
-            if (documento.getTaxaServico() != null && documento.getTaxaServico().compareTo(BigDecimal.ZERO) > 0) {
-                Cell taxaLabel = new Cell();
-                taxaLabel.add(new Paragraph("Taxa de Serviço:")
-                        .setFont(fontBold)
-                        .setFontSize(10));
-                taxaLabel.setBorder(Border.NO_BORDER);
-                taxaLabel.setPadding(5);
-                taxaLabel.setTextAlignment(TextAlignment.RIGHT);
-                totalTable.addCell(taxaLabel);
-
-                Cell taxaValor = new Cell();
-                taxaValor.add(new Paragraph(
-                        currencyFormat.format(documento.getTaxaServico())
-                ).setFont(fontNormal).setFontSize(10));
-                taxaValor.setBorder(Border.NO_BORDER);
-                taxaValor.setPadding(5);
-                taxaValor.setTextAlignment(TextAlignment.RIGHT);
-                totalTable.addCell(taxaValor);
-            }
+//            if (documento.getTaxaServico() != null && documento.getTaxaServico().compareTo(BigDecimal.ZERO) > 0) {
+//                Cell taxaLabel = new Cell();
+//                taxaLabel.add(new Paragraph("Taxa de Serviço:")
+//                        .setFont(fontBold)
+//                        .setFontSize(10));
+//                taxaLabel.setBorder(Border.NO_BORDER);
+//                taxaLabel.setPadding(5);
+//                taxaLabel.setTextAlignment(TextAlignment.RIGHT);
+//                totalTable.addCell(taxaLabel);
+//
+//                Cell taxaValor = new Cell();
+//                taxaValor.add(new Paragraph(
+//                        currencyFormat.format(documento.getTaxaServico())
+//                ).setFont(fontNormal).setFontSize(10));
+//                taxaValor.setBorder(Border.NO_BORDER);
+//                taxaValor.setPadding(5);
+//                taxaValor.setTextAlignment(TextAlignment.RIGHT);
+//                totalTable.addCell(taxaValor);
+//            }
 
             // Total
             Cell totalLabel = new Cell();
