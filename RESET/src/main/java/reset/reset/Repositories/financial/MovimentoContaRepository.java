@@ -89,4 +89,33 @@ public interface MovimentoContaRepository extends BaseRepository<MovimentoConta,
             "GROUP BY m.observacao")
     List<Object[]> countAndSumByMetodo(@Param("empresaId") Long empresaId);
 
+
+    @Query("SELECT m FROM MovimentoConta m WHERE m.data BETWEEN :inicio AND :fim")
+    Page<MovimentoConta> findByDataBetweenPageable(@Param("inicio") LocalDate inicio,
+                                                   @Param("fim") LocalDate fim,
+                                                   Pageable pageable);
+
+    @Query("SELECT m FROM MovimentoConta m WHERE " +
+            "(:contaId IS NULL OR m.conta.id = :contaId) AND " +
+            "(:tipo IS NULL OR m.tipo = :tipo) AND " +
+            "(:dataInicio IS NULL OR m.data >= :dataInicio) AND " +
+            "(:dataFim IS NULL OR m.data <= :dataFim) " +
+            "ORDER BY m.data DESC")
+    List<MovimentoConta> findByFiltros(@Param("contaId") Long contaId,
+                                       @Param("tipo") String tipo,
+                                       @Param("dataInicio") LocalDate dataInicio,
+                                       @Param("dataFim") LocalDate dataFim);
+
+    @Query("SELECT m FROM MovimentoConta m WHERE " +
+            "(:contaId IS NULL OR m.conta.id = :contaId) AND " +
+            "(:tipo IS NULL OR m.tipo = :tipo) AND " +
+            "(:dataInicio IS NULL OR m.data >= :dataInicio) AND " +
+            "(:dataFim IS NULL OR m.data <= :dataFim) " +
+            "ORDER BY m.data DESC")
+    Page<MovimentoConta> findByFiltrosPaginado(@Param("contaId") Long contaId,
+                                               @Param("tipo") String tipo,
+                                               @Param("dataInicio") LocalDate dataInicio,
+                                               @Param("dataFim") LocalDate dataFim,
+                                               Pageable pageable);
+
 }

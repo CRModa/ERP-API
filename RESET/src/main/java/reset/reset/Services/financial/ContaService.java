@@ -64,7 +64,13 @@ public class ContaService extends BaseServiceImpl<Conta, Long, ContaRepository> 
 
     public Page<ContaDTO> findAllDTO(Pageable pageable) {
         Page<Conta> contas = findAll(pageable);
-        return contas.map(ContaDTO::fromEntity);
+
+        return contas.map(conta -> {
+            BigDecimal saldo = getSaldoConta(conta.getId());
+            ContaDTO contaDTO = ContaDTO.fromEntity(conta);
+            contaDTO.setSaldo(saldo);
+            return contaDTO;
+        });
     }
 
     public ContaDTO findByIdDTO(Long id) {
@@ -87,7 +93,7 @@ public class ContaService extends BaseServiceImpl<Conta, Long, ContaRepository> 
     public ContaDTO getSaldoContaComMovimentosDTO(Long contaId) {
         Conta conta = findByIdOrThrow(contaId);
         ContaDTO dto = ContaDTO.fromEntity(conta);
-        dto.setSaldoAtual(getSaldoConta(contaId));
+        dto.setSaldo(getSaldoConta(contaId));
         return dto;
     }
 

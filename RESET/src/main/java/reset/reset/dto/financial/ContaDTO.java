@@ -20,7 +20,8 @@ public class ContaDTO {
     private LocalDateTime dataRegisto;
     private Long empresaId;
     private String empresaNome;
-    private BigDecimal saldoAtual;
+    private BigDecimal saldo;
+    private boolean ativo;
 
     public static ContaDTO fromEntity(Conta conta) {
         return ContaDTO.builder()
@@ -30,6 +31,7 @@ public class ContaDTO {
                 .dataRegisto(conta.getDataRegisto())
                 .empresaId(conta.getEmpresa() != null ? conta.getEmpresa().getId() : null)
                 .empresaNome(conta.getEmpresa() != null ? conta.getEmpresa().getNome() : null)
+                .ativo(conta.getAtivo())
                 .build();
     }
 }

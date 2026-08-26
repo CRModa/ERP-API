@@ -11,16 +11,19 @@ import reset.reset.Models.financial.MovimentoConta;
 import reset.reset.Repositories.financial.ContaRepository;
 import reset.reset.Repositories.financial.MovimentoContaRepository;
 import reset.reset.Services.base.BaseServiceImpl;
+import reset.reset.dto.financial.MovimentoContaDTO;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @Slf4j
 public class MovimentoContaService extends BaseServiceImpl<MovimentoConta, Long, MovimentoContaRepository> {
 
     private final MovimentoContaRepository movimentoContaRepository;
+
     @Autowired
     private ContaRepository contaRepository;
 
@@ -41,6 +44,58 @@ public class MovimentoContaService extends BaseServiceImpl<MovimentoConta, Long,
             throw new BusinessException("Invalid movement type. Valid types: ENTRADA, SAIDA");
         }
     }
+
+    // ==================== MÉTODOS COM RETORNO DTO ====================
+
+    public MovimentoContaDTO findByIdDTO(Long id) {
+        MovimentoConta movimento = findByIdOrThrow(id);
+        return MovimentoContaDTO.fromEntity(movimento);
+    }
+
+    public Page<MovimentoContaDTO> findAllDTO(Pageable pageable) {
+        Page<MovimentoConta> movimentos = findAll(pageable);
+        return movimentos.map(MovimentoContaDTO::fromEntity);
+    }
+
+    public Page<MovimentoContaDTO> findByContaIdDTO(Long contaId, Pageable pageable) {
+        Page<MovimentoConta> movimentos = movimentoContaRepository.findByContaId(contaId, pageable);
+        return movimentos.map(MovimentoContaDTO::fromEntity);
+    }
+
+    public List<MovimentoContaDTO> findByDocumentoIdDTO(Long documentoId) {
+        List<MovimentoConta> movimentos = movimentoContaRepository.findByDocumentoId(documentoId);
+        return movimentos.stream()
+                .map(MovimentoContaDTO::fromEntity)
+                .collect(Collectors.toList());
+    }
+
+    public List<MovimentoContaDTO> findByDataBetweenDTO(LocalDate inicio, LocalDate fim) {
+        List<MovimentoConta> movimentos = movimentoContaRepository.findByDataBetween(inicio, fim);
+        return movimentos.stream()
+                .map(MovimentoContaDTO::fromEntity)
+                .collect(Collectors.toList());
+    }
+
+    public List<MovimentoContaDTO> findByFiltrosDTO(Long contaId, String tipo, LocalDate dataInicio, LocalDate dataFim) {
+        List<MovimentoConta> movimentos = movimentoContaRepository.findByFiltros(contaId, tipo, dataInicio, dataFim);
+        return movimentos.stream()
+                .map(MovimentoContaDTO::fromEntity)
+                .collect(Collectors.toList());
+    }
+
+    public Page<MovimentoContaDTO> findByFiltrosPaginadoDTO(Long contaId, String tipo, LocalDate dataInicio,
+                                                            LocalDate dataFim, Pageable pageable) {
+        Page<MovimentoConta> movimentos = movimentoContaRepository.findByFiltrosPaginado(
+                contaId, tipo, dataInicio, dataFim, pageable);
+        return movimentos.map(MovimentoContaDTO::fromEntity);
+    }
+
+    public BigDecimal sumByContaIdAndTipoDTO(Long contaId, String tipo) {
+        BigDecimal sum = movimentoContaRepository.sumByContaIdAndTipo(contaId, tipo);
+        return sum != null ? sum : BigDecimal.ZERO;
+    }
+
+    // ==================== MÉTODOS ORIGINAIS (MANTIDOS) ====================
 
     public Page<MovimentoConta> findByContaId(Long contaId, Pageable pageable) {
         return movimentoContaRepository.findByContaId(contaId, pageable);
