@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"/>
+    <title>Documento Fiscal</title>
+    <style>
+        @page {
+            size: A4;
+            margin: 2cm;
+        }
+        body {
+            font-family: 'DejaVu Sans', Arial, sans-serif;
+            font-size: 12px;
+            color: #333;
+        }
+        .header {
+            text-align: center;
+            border-bottom: 2px solid #333;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+        .header h1 {
+            font-size: 20px;
+            margin: 0;
+            color: #2c3e50;
+        }
+        .header .empresa {
+            font-size: 14px;
+            font-weight: bold;
+        }
+        .header .dados-empresa {
+            font-size: 10px;
+            color: #666;
+        }
+        .info {
+            margin-bottom: 20px;
+        }
+        .info table {
+            width: 100%;
+        }
+        .info td {
+            padding: 3px 0;
+        }
+        .info .label {
+            font-weight: bold;
+            width: 120px;
+        }
+        .itens {
+            margin: 20px 0;
+        }
+        .itens table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .itens th {
+            background-color: #f0f0f0;
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: center;
+            font-weight: bold;
+        }
+        .itens td {
+            border: 1px solid #ddd;
+            padding: 8px;
+        }
+        .itens .text-right {
+            text-align: right;
+        }
+        .itens .text-center {
+            text-align: center;
+        }
+        .totais {
+            margin-top: 20px;
+            text-align: right;
+        }
+        .totais table {
+            width: 300px;
+            margin-left: auto;
+        }
+        .totais td {
+            padding: 5px 10px;
+        }
+        .totais .total {
+            font-size: 16px;
+            font-weight: bold;
+            border-top: 2px solid #333;
+        }
+        .observacao {
+            margin-top: 20px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background-color: #f9f9f9;
+        }
+        .rodape {
+            margin-top: 30px;
+            text-align: center;
+            font-size: 10px;
+            color: #999;
+            border-top: 1px solid #ddd;
+            padding-top: 10px;
+        }
+        .status {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 3px;
+            font-weight: bold;
+        }
+        .status-pago { background-color: #d4edda; color: #155724; }
+        .status-pendente { background-color: #fff3cd; color: #856404; }
+        .status-cancelado { background-color: #f8d7da; color: #721c24; }
+    </style>
+</head>
+<body>
+<!-- Cabeçalho -->
+<div class="header">
+    <h1 th:text="${titulo}">DOCUMENTO FISCAL</h1>
+    <div class="empresa" th:text="${empresa.nome}">Empresa</div>
+    <div class="dados-empresa">
+        NUIT: <span th:text="${empresa.nuit}">-</span> |
+        Tel: <span th:text="${empresa.telefone}">-</span> |
+        Email: <span th:text="${empresa.email}">-</span>
+    </div>
+    <div class="dados-empresa" th:text="${empresa.endereco}">Endereço</div>
+</div>
+
+<!-- Informações do Documento -->
+<div class="info">
+    <table>
+        <tr>
+            <td class="label">Nº Documento:</td>
+            <td th:text="${documento.numero}">-</td>
+            <td class="label">Data:</td>
+            <td th:text="${dataFormatada}">-</td>
+        </tr>
+        <tr>
+            <td class="label">Cliente:</td>
+            <td th:text="${cliente?.nome} ?: 'Cliente não informado'">-</td>
+            <td class="label">NUIT:</td>
+            <td th:text="${cliente?.nuit} ?: '-'">-</td>
+        </tr>
+        <tr>
+            <td class="label">Tipo:</td>
+            <td th:text="${documento.tipo.descricao}">-</td>
+            <td class="label">Status:</td>
+            <td>
+                    <span class="status"
+                          th:classappend="'status-' + ${#strings.toLowerCase(documento.estado)}"
+                          th:text="${documento.estado}">
+                        PENDENTE
+                    </span>
+            </td>
+        </tr>
+    </table>
+</div>
+
+<!-- Itens do Documento -->
+<div class="itens">
+    <h3>Itens do Documento</h3>
+    <table>
+        <thead>
+        <tr>
+            <th style="width: 40%;">Descrição</th>
+            <th style="width: 10%;">Qtd</th>
+            <th style="width: 15%;">Preço Unit.</th>
+            <th style="width: 15%;">Desconto</th>
+            <th style="width: 20%;">Subtotal</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr th:each="item : ${itens}">
+            <td th:text="${item.produto?.nome} ?: 'Produto não informado'">Produto</td>
+            <td class="text-center" th:text="${item.quantidade}">1</td>
+            <td class="text-right" th:text="${#numbers.formatCurrency(item.precoUnitario)}">0.00</td>
+            <td class="text-right">
+                        <span th:if="${item.descontoValor != null and item.descontoValor > 0}"
+                              th:text="${#numbers.formatCurrency(item.descontoValor)}">0.00</span>
+                <span th:unless="${item.descontoValor != null and item.descontoValor > 0}">-</span>
+            </td>
+            <td class="text-right">
+                <span th:text="${#numbers.formatCurrency(item.subtotal)}">0.00</span>
+            </td>
+        </tr>
+        </tbody>
+    </table>
+</div>
+
+<!-- Totais -->
+<div class="totais">
+    <table>
+        <tr>
+            <td style="width: 60%;">Subtotal:</td>
+            <td style="width: 40%;" th:text="${#numbers.formatCurrency(documento.subtotal)}">0.00</td>
+        </tr>
+        <tr th:if="${documento.desconto != null and documento.desconto > 0}">
+            <td>Desconto:</td>
+            <td th:text="'- ' + ${#numbers.formatCurrency(documento.desconto)}">0.00</td>
+        </tr>
+        <tr th:if="${documento.taxaServico != null and documento.taxaServico > 0}">
+            <td>Taxa de Serviço:</td>
+            <td th:text="${#numbers.formatCurrency(documento.taxaServico)}">0.00</td>
+        </tr>
+        <tr class="total">
+            <td>TOTAL:</td>
+            <td th:text="${#numbers.formatCurrency(documento.total)}">0.00</td>
+        </tr>
+    </table>
+</div>
+
+<!-- Observações -->
+<div class="observacao" th:if="${documento.observacao != null and documento.observacao != ''}">
+    <strong>Observações:</strong>
+    <p th:text="${documento.observacao}">-</p>
+</div>
+
+<!-- Rodapé -->
+<div class="rodape">
+    <p>Documento gerado eletronicamente. Não necessita de assinatura.</p>
+    <p>Data de impressão: <span th:text="${#dates.format(#dates.createNow(), 'dd/MM/yyyy HH:mm')}">-</span></p>
+</div>
+</body>
+</html>

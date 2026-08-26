@@ -31,7 +31,8 @@ public class MovimentoContaDTO {
                 .data(movimento.getData())
                 .contaId(movimento.getConta() != null ? movimento.getConta().getId() : null)
                 .contaDescricao(movimento.getConta() != null ? movimento.getConta().getDescricao() : null)
-                .documentoId(movimento.getDocumento().getId())
+                .documentoId(movimento.getDocumento() != null ? movimento.getDocumento().getId() : null)
+                .documentoNumero(movimento.getDocumento() != null ? movimento.getDocumento().getNumero() : null)
                 .build();
     }
 }

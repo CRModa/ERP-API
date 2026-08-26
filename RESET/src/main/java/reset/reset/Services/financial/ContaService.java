@@ -4,15 +4,19 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import reset.reset.Exceptions.BusinessException;
 import reset.reset.Exceptions.EntityNotFoundException;
+import reset.reset.Models.auth.User;
 import reset.reset.Models.financial.Conta;
 import reset.reset.Models.financial.MovimentoConta;
+import reset.reset.Repositories.auth.UserRepository;
 import reset.reset.Repositories.core.EmpresaRepository;
 import reset.reset.Repositories.financial.ContaRepository;
 import reset.reset.Repositories.financial.MovimentoContaRepository;
+import reset.reset.Security.UserPrincipal;
 import reset.reset.Services.base.BaseServiceImpl;
 import reset.reset.dto.financial.ContaDTO;
 import reset.reset.dto.financial.MovimentoContaDTO;
@@ -32,6 +36,8 @@ public class ContaService extends BaseServiceImpl<Conta, Long, ContaRepository> 
     private MovimentoContaRepository movimentoContaRepository;
     @Autowired
     private EmpresaRepository empresaRepository;
+    @Autowired
+    private UserRepository userRepository;
 
     public ContaService(ContaRepository repository) {
         super(repository);
@@ -40,7 +46,8 @@ public class ContaService extends BaseServiceImpl<Conta, Long, ContaRepository> 
 
     @Override
     protected void validateBeforeSave(Conta conta) {
-        validateEmpresaExists(conta.getEmpresa().getId());
+//        validateEmpresaExists(conta.getEmpresa().getId());
+        conta.setEmpresa(getAuthenticatedUser().getEmpresa());
         validateTipoConta(conta.getTipo());
     }
 
@@ -151,5 +158,51 @@ public class ContaService extends BaseServiceImpl<Conta, Long, ContaRepository> 
 
     public List<Conta> findByTipo(String tipo) {
         return contaRepository.findByTipo(tipo);
+    }
+
+    @Transactional
+    public ContaDTO ativarConta(Long id) {
+        Conta conta = findByIdOrThrow(id);
+
+        // Verifica se a conta já está ativa
+        if (Boolean.TRUE.equals(conta.getAtivo())) {
+            throw new BusinessException("Account is already active");
+        }
+
+        conta.setAtivo(true);
+        Conta updated = repository.save(conta);
+        return ContaDTO.fromEntity(updated);
+    }
+
+    @Transactional
+    public ContaDTO desativarConta(Long id) {
+        Conta conta = findByIdOrThrow(id);
+
+        // Verifica se a conta já está desativada
+        if (Boolean.FALSE.equals(conta.getAtivo())) {
+            throw new BusinessException("Account is already inactive");
+        }
+
+        // Verifica se a conta possui saldo antes de desativar
+        BigDecimal saldo = getSaldoConta(id);
+        if (saldo.compareTo(BigDecimal.ZERO) != 0) {
+            throw new BusinessException("Cannot deactivate account with non-zero balance. Current balance: " + saldo);
+        }
+
+        //implementacao de verificacao se a conta tem movimentos pendentes
+
+        conta.setAtivo(false);
+        Conta updated = repository.save(conta);
+        return ContaDTO.fromEntity(updated);
+    }
+
+    private User getAuthenticatedUser() {
+        try {
+            UserPrincipal principal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+            return userRepository.findById(principal.getId())
+                    .orElseThrow(() -> new EntityNotFoundException("User not found"));
+        } catch (Exception e) {
+            throw new BusinessException("User not authenticated");
+        }
     }
 }

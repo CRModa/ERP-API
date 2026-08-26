@@ -131,6 +131,24 @@ public class ContaController extends BaseController {
         return success(movimentos);
     }
 
+    @PatchMapping("/{id}/activate")
+    @Operation(summary = "Activate an account")
+    @PreAuthorize("hasPermission('FINANCEIRO_UPDATE')")
+    public ResponseEntity<ApiResponse<ContaDTO>> ativarConta(@PathVariable Long id) {
+        log.info("Activating account with id: {}", id);
+        ContaDTO conta = contaService.ativarConta(id);
+        return success(conta, "Account activated successfully");
+    }
+
+    @PatchMapping("/{id}/deactivate")
+    @Operation(summary = "Deactivate an account")
+    @PreAuthorize("hasPermission('FINANCEIRO_UPDATE')")
+    public ResponseEntity<ApiResponse<ContaDTO>> desativarConta(@PathVariable Long id) {
+        log.info("Deactivating account with id: {}", id);
+        ContaDTO conta = contaService.desativarConta(id);
+        return success(conta, "Account deactivated successfully");
+    }
+
     @DeleteMapping("/{id}")
     @Operation(summary = "Delete account")
     @PreAuthorize("hasPermission('FINANCEIRO_DELETE')")
