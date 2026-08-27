@@ -27,25 +27,25 @@ public class PDFController extends BaseController {
 
     private final PDFService pdfService;
 
-//    @PostMapping("/{id}/pdf")
-//    @Operation(summary = "Generate PDF for a document")
-//    @PreAuthorize("hasPermission('DOCUMENTO_READ')")
-//    public ResponseEntity<ApiResponse<PDFResponse>> gerarPDF(
-//            @PathVariable Long id,
-//            @RequestBody(required = false) PDFConfigDTO config) {
-//        log.info("Gerando PDF para documento: {}", id);
-//
-//        if (config == null) {
-//            config = PDFConfigDTO.builder()
-//                    .titulo("DOCUMENTO FISCAL")
-//                    .moeda("MZN")
-//                    .rodape("Documento gerado eletronicamente. Não necessita de assinatura.")
-//                    .build();
-//        }
-//
-//        PDFResponse response = pdfService.downloadPDF(id, config);
-//        return success(response);
-//    }
+    @PostMapping("/{id}/pdf")
+    @Operation(summary = "Generate PDF for a document")
+    @PreAuthorize("hasPermission('DOCUMENTO_READ')")
+    public ResponseEntity<ApiResponse<PDFResponse>> gerarPDF(
+            @PathVariable Long id,
+            @RequestBody(required = false) PDFConfigDTO config) {
+        log.info("Gerando PDF para documento: {}", id);
+
+        if (config == null) {
+            config = PDFConfigDTO.builder()
+                    .titulo("DOCUMENTO FISCAL")
+                    .moeda("MZN")
+                    .rodape("Documento gerado eletronicamente. Não necessita de assinatura.")
+                    .build();
+        }
+
+        PDFResponse response = pdfService.gerarPDFOpenPDF(id, config);
+        return success(response);
+    }
 
     @GetMapping("/{id}/pdf/download")
     @Operation(summary = "Download PDF for a document")
@@ -65,23 +65,23 @@ public class PDFController extends BaseController {
         return pdfService.downloadPDF(id, config);
     }
 
-//    @GetMapping("/{id}/pdf/view")
-//    @Operation(summary = "View PDF in browser")
-//    @PreAuthorize("hasPermission('DOCUMENTO_READ')")
-//    public ResponseEntity<byte[]> visualizarPDF(@PathVariable Long id) {
-//        log.info("Visualizando PDF para documento: {}", id);
-//
-//        PDFConfigDTO config = PDFConfigDTO.builder()
-//                .titulo("DOCUMENTO FISCAL")
-//                .moeda("MZN")
-//                .build();
-//
-//        PDFResponse response = pdfService.gerarPDFOpenPDF(id, config);
+    @GetMapping("/{id}/pdf/view")
+    @Operation(summary = "View PDF in browser")
+    @PreAuthorize("hasPermission('DOCUMENTO_READ')")
+    public ResponseEntity<byte[]> visualizarPDF(@PathVariable Long id) {
+        log.info("Visualizando PDF para documento: {}", id);
+
+        PDFConfigDTO config = PDFConfigDTO.builder()
+                .titulo("DOCUMENTO FISCAL")
+                .moeda("MZN")
+                .build();
+
+        return pdfService.visualizarPDF(id, config);
 //        byte[] pdfBytes = Base64.getDecoder().decode(response.getFileBase64());
-//
+
 //        return ResponseEntity.ok()
 //                .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + response.getFileName() + "\"")
 //                .contentType(MediaType.APPLICATION_PDF)
 //                .body(pdfBytes);
-//    }
+    }
 }

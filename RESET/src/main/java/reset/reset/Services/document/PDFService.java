@@ -43,6 +43,7 @@ import reset.reset.Repositories.document.DocumentoRepository;
 import reset.reset.Repositories.core.EmpresaRepository;
 import reset.reset.dto.document.pdf.PDFConfigDTO;
 import reset.reset.dto.document.pdf.PDFResponse;
+import reset.reset.utils.NumberToWordsUtils;
 
 import java.io.ByteArrayOutputStream;
 import java.math.BigDecimal;
@@ -123,7 +124,7 @@ public class PDFService {
                     .fileBase64(Base64.getEncoder().encodeToString(pdfBytes))
                     .contentType("application/pdf")
                     .fileSize((long) pdfBytes.length)
-                    .downloadUrl("/api/documentos/" + documentoId + "/pdf/download")
+                    .downloadUrl("/documentos/" + documentoId + "/pdf/download")
                     .build();
 
         } catch (Exception e) {
@@ -181,7 +182,7 @@ public class PDFService {
                     .setFont(bold)
                     .setFontSize(13)
                     .setFontColor(PRIMARY)
-                    .setMarginBottom(2));
+                    .setMarginBottom(0));
         }
 
         addMutedLine(infoCell, hasText(nuitEmpresa) ? "NUIT: " + nuitEmpresa : null, normal);
@@ -203,8 +204,8 @@ public class PDFService {
     private void buildTitleAndBadge(Document doc, PDFConfigDTO config,
                                     Documento documento, PdfFont bold) {
 
-        String titulo = hasText(config.getTitulo())
-                ? config.getTitulo().toUpperCase()
+        String titulo = hasText(documento.getTipo().getDescricao())
+                ? documento.getTipo().getDescricao().toUpperCase()
                 : "DOCUMENTO FISCAL";
 
         Table titleTable = new Table(UnitValue.createPercentArray(new float[]{2.4f, 1.6f}))
@@ -216,7 +217,7 @@ public class PDFService {
                 .setVerticalAlignment(VerticalAlignment.MIDDLE)
                 .add(new Paragraph(titulo)
                         .setFont(bold)
-                        .setFontSize(14)
+                        .setFontSize(10)
                         .setFontColor(PRIMARY));
 
         Cell badgeCell = new Cell()
@@ -228,12 +229,12 @@ public class PDFService {
                 .setBackgroundColor(LIGHT_BG)
                 .setBorder(new SolidBorder(BORDER_COLOR, 0.7f))
                 .setPadding(5)
-                .setPaddingLeft(10)
-                .setPaddingRight(10);
+                .setPaddingLeft(1)
+                .setPaddingRight(1);
 
         badge.add(new Paragraph("Nº " + safe(documento.getNumero(), "—"))
                 .setFont(bold)
-                .setFontSize(10)
+                .setFontSize(9)
                 .setFontColor(PRIMARY)
                 .setTextAlignment(TextAlignment.CENTER)
                 .setMargin(0));
@@ -291,11 +292,11 @@ public class PDFService {
                 .setPadding(0)
                 .setPaddingRight(8);
 
-        empresaCell.add(new Paragraph("EMPRESA")
-                .setFont(bold)
-                .setFontSize(7.5f)
-                .setFontColor(ACCENT)
-                .setMarginBottom(3));
+//        empresaCell.add(new Paragraph("EMPRESA")
+//                .setFont(bold)
+//                .setFontSize(7.5f)
+//                .setFontColor(ACCENT)
+//                .setMarginBottom(3));
 
         String nomeEmp = firstNonBlank(config.getEmpresaNome(),
                 empresa != null ? empresa.getNome() : null);
@@ -308,7 +309,7 @@ public class PDFService {
         String emailEmp = firstNonBlank(config.getEmpresaEmail(),
                 empresa != null ? empresa.getEmail() : null);
 
-//        addPartyLine(empresaCell, nomeEmp, bold, 8, PRIMARY);
+        addPartyLine(empresaCell, nomeEmp, bold, 8, PRIMARY);
         addPartyLine(empresaCell, hasText(nuitEmp) ? "NUIT: " + nuitEmp : null, normal, 7f, SECONDARY);
         addPartyLine(empresaCell, endEmp, normal, 8f, SECONDARY);
         addPartyLine(empresaCell, hasText(telEmp) ? "Tel: " + telEmp : null, normal, 7f, SECONDARY);
@@ -324,12 +325,12 @@ public class PDFService {
                 .setPaddingLeft(8)
                 .setTextAlignment(TextAlignment.RIGHT);
 
-        clienteCell.add(new Paragraph("CLIENTE")
-                .setFont(bold)
-                .setFontSize(7.5f)
-                .setFontColor(ACCENT)
-                .setMarginBottom(3)
-                .setTextAlignment(TextAlignment.RIGHT));
+//        clienteCell.add(new Paragraph("CLIENTE")
+//                .setFont(bold)
+//                .setFontSize(7.5f)
+//                .setFontColor(ACCENT)
+//                .setMarginBottom(3)
+//                .setTextAlignment(TextAlignment.RIGHT));
 
         String nomeCli = "Cliente não informado";
         String nuitCli = null;
@@ -343,7 +344,7 @@ public class PDFService {
             telCli = safeGet(() -> documento.getCliente().getTelefone());
         }
 
-//        addPartyLine(clienteCell, nomeCli, bold, 8, PRIMARY, TextAlignment.RIGHT);
+        addPartyLine(clienteCell, nomeCli, bold, 8, PRIMARY, TextAlignment.RIGHT);
         addPartyLine(clienteCell, hasText(nuitCli) ? "NUIT: " + nuitCli : null, normal, 7f, SECONDARY, TextAlignment.RIGHT);
         addPartyLine(clienteCell, endCli, normal, 7f, SECONDARY, TextAlignment.RIGHT);
         addPartyLine(clienteCell, hasText(telCli) ? "Tel: " + telCli : null, normal, 7f, SECONDARY, TextAlignment.RIGHT);
@@ -358,11 +359,11 @@ public class PDFService {
 
         // Barra de destaque
         doc.add(new Div()
-                .setHeight(1.8f)
+                .setHeight(0.8f)
                 .setBackgroundColor(ACCENT)
                 .setWidth(UnitValue.createPercentValue(100))
-                .setMarginTop(6)
-                .setMarginBottom(16));
+                .setMarginTop(2)
+                .setMarginBottom(18));
     }
 
     private void buildItemsTable(Document doc, Documento documento,
@@ -370,7 +371,7 @@ public class PDFService {
 
         doc.add(new Paragraph("Detalhe dos Itens")
                 .setFont(bold)
-                .setFontSize(10)
+                .setFontSize(9)
                 .setFontColor(PRIMARY)
                 .setMarginBottom(6));
 
@@ -380,17 +381,19 @@ public class PDFService {
 
         // Cabeçalho – apenas linha inferior
         String[] headers = {"Descrição", "Qtd", "Preço Unit.", "Desconto", "Subtotal"};
-        for (String h : headers) {
+        for (int i = 0; i < headers.length; i++) {
+            String h = headers[i];
+            TextAlignment alignment = (i == 0) ? TextAlignment.LEFT : TextAlignment.RIGHT;
             table.addHeaderCell(new Cell()
                     .add(new Paragraph(h)
                             .setFont(bold)
-                            .setFontSize(8.5f)
+                            .setFontSize(7.6f)
                             .setFontColor(PRIMARY))
                     .setBackgroundColor(LIGHT_BG)
                     .setBorder(NO_BORDER)
                     .setBorderBottom(H_BORDER_STRONG)
                     .setPadding(7)
-                    .setTextAlignment(TextAlignment.CENTER));
+                    .setTextAlignment(alignment));
         }
 
         NumberFormat currency = currencyFormat();
@@ -421,7 +424,7 @@ public class PDFService {
                         : "Produto não informado";
 
                 String qtd = item.getQuantidade() != null
-                        ? item.getQuantidade().toString() : "0";
+                        ? item.getQuantidade().toBigInteger().toString() : "0";
 
                 String preco = item.getPrecoUnitario() != null
                         ? currency.format(item.getPrecoUnitario()) : "0,00";
@@ -442,7 +445,7 @@ public class PDFService {
                 }
 
                 table.addCell(itemCell(desc, normal, TextAlignment.LEFT, bg, isLast));
-                table.addCell(itemCell(qtd, normal, TextAlignment.CENTER, bg, isLast));
+                table.addCell(itemCell(qtd, normal, TextAlignment.RIGHT, bg, isLast));
                 table.addCell(itemCell(preco, normal, TextAlignment.RIGHT, bg, isLast));
                 table.addCell(itemCell(desconto, normal, TextAlignment.RIGHT, bg, isLast));
                 table.addCell(itemCell(currency.format(subtotal), bold, TextAlignment.RIGHT, bg, isLast));
@@ -483,6 +486,8 @@ public class PDFService {
         totals.addCell(totalValue(currency.format(total), bold, true));
 
         doc.add(totals);
+
+        buildTotalPorExtenso(doc, documento, normal);
     }
 
     private void buildObservations(Document doc, Documento documento,
@@ -494,7 +499,7 @@ public class PDFService {
 
         doc.add(new Paragraph("Observações")
                 .setFont(bold)
-                .setFontSize(9)
+                .setFontSize(8)
                 .setFontColor(PRIMARY)
                 .setMarginBottom(4));
 
@@ -508,7 +513,7 @@ public class PDFService {
 
         box.add(new Paragraph(documento.getObservacao())
                 .setFont(normal)
-                .setFontSize(8.5f)
+                .setFontSize(7.5f)
                 .setFontColor(SECONDARY)
                 .setMargin(0));
 
@@ -554,7 +559,7 @@ public class PDFService {
             canvas.showTextAligned(
                     new Paragraph(rodape)
                             .setFont(font)
-                            .setFontSize(7)
+                            .setFontSize(6)
                             .setFontColor(SECONDARY),
                     MARGIN, y + 4, TextAlignment.LEFT);
 
@@ -563,14 +568,14 @@ public class PDFService {
             canvas.showTextAligned(
                     new Paragraph(gerado)
                             .setFont(font)
-                            .setFontSize(7)
+                            .setFontSize(6)
                             .setFontColor(SECONDARY),
                     pageSize.getWidth() / 2, y + 4, TextAlignment.CENTER);
 
             canvas.showTextAligned(
                     new Paragraph("Página " + pageNumber + " de " + totalPages)
                             .setFont(font)
-                            .setFontSize(7)
+                            .setFontSize(6)
                             .setFontColor(SECONDARY),
                     pageSize.getWidth() - MARGIN, y + 4, TextAlignment.RIGHT);
 
@@ -585,7 +590,7 @@ public class PDFService {
         Cell cell = new Cell()
                 .add(new Paragraph(text)
                         .setFont(font)
-                        .setFontSize(8.5f)
+                        .setFontSize(7.5f)
                         .setFontColor(PRIMARY))
                 .setBackgroundColor(bg)
                 .setBorder(NO_BORDER)
@@ -600,7 +605,7 @@ public class PDFService {
         Cell cell = new Cell()
                 .add(new Paragraph(text)
                         .setFont(font)
-                        .setFontSize(isTotal ? 10 : 8.5f)
+                        .setFontSize(isTotal ? 8 : 6.5f)
                         .setFontColor(isTotal ? PRIMARY : SECONDARY))
                 .setBorder(NO_BORDER)
                 .setPadding(5)
@@ -617,7 +622,7 @@ public class PDFService {
         Cell cell = new Cell()
                 .add(new Paragraph(text)
                         .setFont(font)
-                        .setFontSize(isTotal ? 10.5f : 8.5f)
+                        .setFontSize(isTotal ? 8.5f : 6.5f)
                         .setFontColor(PRIMARY))
                 .setBorder(NO_BORDER)
                 .setPadding(5)
@@ -757,8 +762,202 @@ public class PDFService {
     }
 
     @Transactional(readOnly = true)
-    public byte[] gerarPDFMultiplos(java.util.List<Long> documentosIds) {
-        throw new UnsupportedOperationException(
-                "Método ainda não implementado. Reutilize os métodos build*.");
+    public PDFResponse gerarPDFOpenPDF(Long documentoId, PDFConfigDTO config) {
+        try {
+            Documento documento = documentoRepository.findById(documentoId)
+                    .orElseThrow(() -> new EntityNotFoundException("Documento não encontrado: " + documentoId));
+
+            // Se config for null, usa configurações padrão
+            if (config == null) {
+                config = PDFConfigDTO.builder()
+                        .titulo("DOCUMENTO FISCAL")
+                        .moeda("MZN")
+                        .rodape("Documento gerado eletronicamente. Não necessita de assinatura.")
+                        .build();
+            }
+
+            PDFResponse response = gerarPDFItext(documentoId, config);
+
+            return response;
+
+        } catch (Exception e) {
+            log.error("Erro ao gerar PDF OpenPDF: {}", e.getMessage(), e);
+            throw new BusinessException("Erro ao gerar PDF: " + e.getMessage());
+        }
+    }
+
+    @Transactional(readOnly = true)
+    public ResponseEntity<byte[]> visualizarPDF(Long documentoId, PDFConfigDTO config) {
+        try {
+            // Se config for null, usa configurações padrão
+            if (config == null) {
+                config = PDFConfigDTO.builder()
+                        .titulo("DOCUMENTO FISCAL")
+                        .moeda("MZN")
+                        .rodape("Documento gerado eletronicamente. Não necessita de assinatura.")
+                        .build();
+            }
+
+            PDFResponse response = gerarPDFItext(documentoId, config);
+
+            // Decodifica o Base64 para bytes
+            byte[] pdfBytes = Base64.getDecoder().decode(response.getFileBase64());
+
+            // Retorna o PDF para visualização inline
+            return ResponseEntity.ok()
+                    .header(HttpHeaders.CONTENT_DISPOSITION,
+                            "inline; filename=\"" + response.getFileName() + "\"")
+                    .contentType(MediaType.APPLICATION_PDF)
+                    .body(pdfBytes);
+
+        } catch (Exception e) {
+            log.error("Erro ao visualizar PDF: {}", e.getMessage(), e);
+            throw new BusinessException("Erro ao visualizar PDF: " + e.getMessage());
+        }
+    }
+
+//    @Transactional(readOnly = true)
+//    public PDFResponse gerarPDFMultiplosDocumentos(java.util.List<Long> documentosIds) {
+//        try {
+//            if (documentosIds == null || documentosIds.isEmpty()) {
+//                throw new BusinessException("Nenhum documento selecionado para gerar PDF");
+//            }
+//
+//            // Busca todos os documentos
+//            List<Documento> documentos = documentoRepository.findAllById(documentosIds);
+//
+//            if (documentos.isEmpty()) {
+//                throw new BusinessException("Nenhum documento encontrado com os IDs fornecidos");
+//            }
+//
+//            // Cria um PDF consolidado
+//            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+//            PdfWriter writer = new PdfWriter(baos);
+//            PdfDocument pdfDoc = new PdfDocument(writer);
+//            pdfDoc.setDefaultPageSize(PageSize.A4);
+//
+//            // Configurações padrão
+//            PDFConfigDTO config = PDFConfigDTO.builder()
+//                    .titulo("DOCUMENTOS FISCAIS - CONSOLIDADO")
+//                    .moeda("MZN")
+//                    .rodape("Documentos gerados eletronicamente. Não necessitam de assinatura.")
+//                    .build();
+//
+//            // Carrega as fontes
+//            PdfFont fontNormal = createFont(FONT_PATH);
+//            PdfFont fontBold = createFont(FONT_BOLD_PATH);
+//
+//            // Adiciona cada documento como uma nova página
+//            int pageCount = 0;
+//            for (Documento documento : documentos) {
+//                // Adiciona uma nova página para cada documento
+//                if (pageCount > 0) {
+//                    pdfDoc.addNewPage();
+//                }
+//
+//                // Cria um documento para a página atual
+//                Document doc = new Document(pdfDoc);
+//                doc.setMargins(MARGIN, MARGIN, 70, MARGIN);
+//
+//                // Adiciona o conteúdo do documento
+//                buildTitleAndBadge(doc, config, documento, fontBold);
+//                buildPartiesInfo(doc, config, documento.getEmpresa(), documento, fontNormal, fontBold);
+//                buildItemsTable(doc, documento, fontNormal, fontBold);
+//                buildTotals(doc, documento, fontNormal, fontBold);
+//
+//                // Adiciona valor por extenso
+//                buildTotalPorExtenso(doc, documento, fontNormal);
+//
+//                // Adiciona observações se houver
+//                if (hasText(documento.getObservacao())) {
+//                    buildObservations(doc, documento, fontNormal, fontBold);
+//                }
+//
+//                // Adiciona separador entre documentos
+//                if (documentos.indexOf(documento) < documentos.size() - 1) {
+//                    doc.add(new Div()
+//                            .setHeight(1f)
+//                            .setBackgroundColor(ACCENT)
+//                            .setWidth(UnitValue.createPercentValue(100))
+//                            .setMarginTop(20)
+//                            .setMarginBottom(20));
+//
+//                    doc.add(new Paragraph("--- Documento " + (pageCount + 1) + " ---")
+//                            .setFont(fontBold)
+//                            .setFontSize(8f)
+//                            .setFontColor(SECONDARY)
+//                            .setTextAlignment(TextAlignment.CENTER));
+//                }
+//
+//                doc.close();
+//                pageCount++;
+//            }
+//
+//            pdfDoc.close();
+//
+//            byte[] pdfBytes = baos.toByteArray();
+//
+//            return PDFResponse.builder()
+//                    .fileName("documentos_consolidados_" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("ddMMyyyy_HHmmss")) + ".pdf")
+//                    .fileBase64(Base64.getEncoder().encodeToString(pdfBytes))
+//                    .contentType("application/pdf")
+//                    .fileSize((long) pdfBytes.length)
+//                    .downloadUrl("/documentos/pdf/download-multiplos")
+//                    .build();
+//
+//        } catch (Exception e) {
+//            log.error("Erro ao gerar PDF múltiplos: {}", e.getMessage(), e);
+//            throw new BusinessException("Erro ao gerar PDF múltiplos: " + e.getMessage());
+//        }
+//    }
+//
+//    @Transactional(readOnly = true)
+//    public ResponseEntity<byte[]> downloadPDFMultiplos(java.util.List<Long> documentosIds) {
+//        try {
+//            PDFResponse response = gerarPDFMultiplosDocumentos(documentosIds);
+//
+//            byte[] pdfBytes = Base64.getDecoder().decode(response.getFileBase64());
+//
+//            return ResponseEntity.ok()
+//                    .header(HttpHeaders.CONTENT_DISPOSITION,
+//                            "attachment; filename=\"" + response.getFileName() + "\"")
+//                    .contentType(MediaType.APPLICATION_PDF)
+//                    .body(pdfBytes);
+//
+//        } catch (Exception e) {
+//            log.error("Erro ao baixar PDF múltiplos: {}", e.getMessage(), e);
+//            throw new BusinessException("Erro ao baixar PDF múltiplos: " + e.getMessage());
+//        }
+//    }
+
+    private void buildTotalPorExtenso(Document doc, Documento documento, PdfFont normal) {
+        if (documento.getTotal() == null || documento.getTotal().compareTo(BigDecimal.ZERO) == 0) {
+            return;
+        }
+
+        String extenso = NumberToWordsUtils.convert(documento.getTotal());
+
+        Div extensoDiv = new Div()
+                .setBackgroundColor(LIGHT_BG)
+                .setBorder(new SolidBorder(BORDER_COLOR, 0.5f))
+                .setPadding(8)
+                .setPaddingLeft(12)
+                .setMarginBottom(10)
+                .setWidth(UnitValue.createPercentValue(100));
+
+        extensoDiv.add(new Paragraph("Valor por extenso:")
+                .setFont(normal)
+                .setFontSize(7f)
+                .setFontColor(SECONDARY)
+                .setMarginBottom(2));
+
+        extensoDiv.add(new Paragraph(extenso)
+                .setFont(normal)
+                .setFontSize(8f)
+                .setFontColor(PRIMARY)
+                .setMargin(0)
+                .setTextAlignment(TextAlignment.LEFT));
+
+        doc.add(extensoDiv);
     }
 }
