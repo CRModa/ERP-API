@@ -15,6 +15,7 @@ import java.time.LocalDateTime;
 public class PagamentoResponse {
     private Long id;
     private String numeroDocumento;
+    private Long documentoId;
     private Long pedidoId;
     private String pedidoNumero;
     private Long contaId;

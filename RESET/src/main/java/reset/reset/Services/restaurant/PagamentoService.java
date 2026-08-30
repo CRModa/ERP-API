@@ -100,9 +100,9 @@ public class PagamentoService {
         Pedido pedido = pedidoRepository.findById(request.getPedidoId())
                 .orElseThrow(() -> new EntityNotFoundException("Pedido não encontrado: " + request.getPedidoId()));
 
-        if (pedido.getStatus() == Pedido.StatusPedido.FECHADO) {
-            throw new BusinessException("Este pedido já foi pago");
-        }
+//        if (pedido.getStatus() == Pedido.StatusPedido.FECHADO) {
+//            throw new BusinessException("Este pedido já foi pago");
+//        }
 
         // 2. Validar conta
         Conta conta = contaRepository.findById(request.getContaId())
@@ -197,6 +197,7 @@ public class PagamentoService {
 
         return PagamentoResponse.builder()
                 .id(savedDocumento.getId())
+                .documentoId(savedDocumento.getId())
                 .numeroDocumento(savedDocumento.getNumero())
                 .pedidoId(pedido.getId())
                 .pedidoNumero(pedido.getNumero())

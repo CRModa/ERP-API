@@ -61,6 +61,13 @@ public class EmpresaController extends BaseController {
         return success(EmpresaDTO.fromEntity(empresa));
     }
 
+    @GetMapping("/byuser")
+    @Operation(summary = "Get company by User - returns full DTO")
+    public ResponseEntity<ApiResponse<EmpresaDTO>> findByUser() {
+        Empresa empresa = empresaService.findByUser();
+        return success(EmpresaDTO.fromEntity(empresa));
+    }
+
     @GetMapping
     @Operation(summary = "Get all companies with pagination and filtering - returns summary DTOs")
     public ResponseEntity<ApiResponse<Page<EmpresaResumoDTO>>> findAll(

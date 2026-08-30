@@ -1,14 +1,19 @@
 package reset.reset.Services.core;
 
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import reset.reset.Exceptions.BusinessException;
 import reset.reset.Exceptions.DuplicateEntityException;
+import reset.reset.Models.auth.User;
 import reset.reset.Models.core.Empresa;
+import reset.reset.Repositories.auth.UserRepository;
 import reset.reset.Repositories.core.EmpresaRepository;
+import reset.reset.Security.UserPrincipal;
 import reset.reset.Services.base.BaseServiceImpl;
 import reset.reset.dto.core.EmpresaEstatisticasDTO;
 import reset.reset.dto.core.EmpresaResumoDTO;
@@ -22,6 +27,8 @@ import java.util.stream.Collectors;
 public class EmpresaService extends BaseServiceImpl<Empresa, Long, EmpresaRepository> {
 
     private final EmpresaRepository empresaRepository;
+    @Autowired
+    private UserRepository userRepository;
 
     public EmpresaService(EmpresaRepository repository) {
         super(repository);
@@ -84,6 +91,11 @@ public class EmpresaService extends BaseServiceImpl<Empresa, Long, EmpresaReposi
         return empresaRepository.save(empresa);
     }
 
+    @Transactional
+    public Empresa findByUser() {
+        return getAuthenticatedUser().getEmpresa();
+    }
+
     // Methods returning full entities (for internal use or full DTO conversion)
     public Page<Empresa> filter(EmpresaFilter filter, Pageable pageable) {
         return empresaRepository.filter(filter, pageable);
@@ -134,5 +146,10 @@ public class EmpresaService extends BaseServiceImpl<Empresa, Long, EmpresaReposi
 
     public long countActive() {
         return empresaRepository.countActiveEmpresas();
+    }
+
+    private User getAuthenticatedUser() {
+        UserPrincipal principal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        return userRepository.findById(principal.getId()).get();
     }
 }
